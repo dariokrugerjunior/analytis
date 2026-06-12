@@ -3,8 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
+*.egg/
 .venv/
 .venv*/
+build/
+dist/
 
 # Tooling
 .ruff_cache/
