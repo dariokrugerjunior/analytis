@@ -7,9 +7,7 @@ from analytis.config import Settings
 
 
 def test_settings_loads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(
-        "ANALYTIS_DATABASE_URL", "postgresql+psycopg://u:p@h:5432/d"
-    )
+    monkeypatch.setenv("ANALYTIS_DATABASE_URL", "postgresql+psycopg://u:p@h:5432/d")
     monkeypatch.setenv("ANALYTIS_API_KEY", "secret-key")
 
     settings = Settings()
