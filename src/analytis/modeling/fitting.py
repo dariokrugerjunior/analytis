@@ -20,6 +20,10 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import minimize
 
+from analytis.modeling.confederation_prior import (
+    ConfederationPrior,
+    confederation_penalty,
+)
 from analytis.modeling.dixon_coles import log_likelihood_match
 
 
@@ -40,6 +44,7 @@ class FitConfig:
     identifiability_penalty: float = 1.0
     initial_home_advantage: float = 0.3
     initial_rho: float = -0.05
+    confederation_prior: ConfederationPrior | None = None
 
 
 @dataclass
@@ -85,6 +90,7 @@ def _neg_log_likelihood(
     team_to_idx: dict[str, int],
     weights: NDArray[np.float64],
     identifiability_penalty: float,
+    confederation_prior: ConfederationPrior | None,
 ) -> float:
     n_teams = len(team_to_idx)
     attack, defense, gamma, rho = _unpack(x, n_teams)
@@ -107,7 +113,16 @@ def _neg_log_likelihood(
             return 1e9
         total += float(weights[i]) * ll
     penalty = identifiability_penalty * (float(np.mean(attack)) ** 2 + float(np.mean(defense)) ** 2)
-    return -total + penalty * len(matches)
+    extra_penalty = 0.0
+    if confederation_prior is not None and confederation_prior.is_active():
+        attack_dict = {t: float(attack[i]) for t, i in team_to_idx.items()}
+        defense_dict = {t: float(defense[i]) for t, i in team_to_idx.items()}
+        extra_penalty = confederation_penalty(
+            attack=attack_dict,
+            defense=defense_dict,
+            prior=confederation_prior,
+        )
+    return -total + penalty * len(matches) + extra_penalty
 
 
 def fit_dixon_coles(
@@ -133,7 +148,13 @@ def fit_dixon_coles(
     result = minimize(
         _neg_log_likelihood,
         x0,
-        args=(matches, team_to_idx, weights, cfg.identifiability_penalty),
+        args=(
+            matches,
+            team_to_idx,
+            weights,
+            cfg.identifiability_penalty,
+            cfg.confederation_prior,
+        ),
         method="L-BFGS-B",
         bounds=bounds,
         options={"maxiter": cfg.max_iter},
