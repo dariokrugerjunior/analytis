@@ -1,0 +1,45 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bg-base text-fg-primary font-sans;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .gradient-edge {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+  }
+  .gradient-home {
+    background: linear-gradient(90deg, #10b981, #34d399);
+  }
+  .gradient-away {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+  }
+  .text-gradient-brand {
+    background: linear-gradient(90deg, #fbbf24, #10b981);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass-card {
+    @apply bg-bg-overlay border border-white/10 backdrop-blur;
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded;
+  }
+}
