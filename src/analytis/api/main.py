@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from analytis import __version__
-from analytis.api.routes import health, models, predictions
+from analytis.api.routes import health, models, odds, predictions, value_bets
 
 
 def create_app() -> FastAPI:
@@ -18,6 +18,8 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/v1")
     app.include_router(predictions.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
+    app.include_router(odds.router, prefix="/v1")
+    app.include_router(value_bets.router, prefix="/v1")
     return app
 
 
