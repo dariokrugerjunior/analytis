@@ -12,6 +12,7 @@ from analytis.application.find_value_bets import (
     FindValueBetsParams,
     FindValueBetsUseCase,
 )
+from analytis.application.track_clv import TrackCLVParams, TrackCLVUseCase
 from analytis.config import get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.bets import ValueBetORM
@@ -96,5 +97,25 @@ async def _find(
             )
         console.print(table)
         console.print(f"[green]{result.bets_found} new bets found this run.[/green]")
+    finally:
+        await engine.dispose()
+
+
+@app.command("track-clv")
+def track_clv(
+    match_id: str = typer.Option(..., help="Match UUID."),
+) -> None:
+    """Update CLV on existing value bets using current closing odds."""
+    asyncio.run(_track_clv(match_id))
+
+
+async def _track_clv(match_id_str: str) -> None:
+    settings = get_settings()
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        use_case = TrackCLVUseCase(factory)
+        result = await use_case.execute(TrackCLVParams(match_id=UUID(match_id_str)))
+        console.print(f"[green]Updated CLV on {result.bets_updated} bets.[/green]")
     finally:
         await engine.dispose()
