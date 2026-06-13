@@ -8,7 +8,7 @@
 
 **Tech Stack:** Existente (Python 3.12, uv, Ruff, Mypy strict, Pytest, FastAPI, SQLAlchemy 2.x async, Pydantic 2, Alembic, Typer, httpx, structlog) + **novos**: numpy, scipy, pandas (treino/scoring), pyarrow (cache de features em parquet).
 
-**Branch:** `feature/plan-02-features-and-dixon-coles` (sair de `feature/plan-01-foundation-and-ingestion`).
+**Branch:** trabalhar direto em `main` (preferência do usuário — sem feature branches).
 
 **Spec:** `docs/superpowers/specs/2026-06-12-football-analytics-design.md` §6 (features) + §7 (modelagem) + §11 sem 3-4.
 
@@ -107,16 +107,16 @@ analytis/
 
 ---
 
-## Task 1: Criar branch + adicionar dependências numéricas
+## Task 1: Adicionar dependências numéricas
 
 **Files:**
 - Modify: `pyproject.toml`
 
-- [ ] **Step 1: Criar branch a partir de `feature/plan-01-foundation-and-ingestion`**
+- [ ] **Step 1: Confirmar que está em `main`**
 
 ```bash
 cd "C:\Projetos\Pessoal\analytis"
-git checkout -b feature/plan-02-features-and-dixon-coles
+git branch --show-current  # expected: main
 ```
 
 - [ ] **Step 2: Adicionar dependências numéricas em `pyproject.toml`**
