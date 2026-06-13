@@ -10,6 +10,7 @@ from analytis.persistence.repositories.ingestion import (
     IngestionRunRepository,
 )
 from analytis.persistence.repositories.match import MatchRepository
+from analytis.persistence.repositories.model_version import ModelVersionRepository
 from analytis.persistence.repositories.reference import SeasonRepository
 from analytis.persistence.repositories.team import TeamRepository
 
@@ -20,6 +21,7 @@ __all__ = [
     "FeatureSnapshotRepository",
     "IngestionRunRepository",
     "MatchRepository",
+    "ModelVersionRepository",
     "SeasonRepository",
     "TeamRepository",
 ]
