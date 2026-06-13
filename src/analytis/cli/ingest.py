@@ -87,3 +87,46 @@ async def _backfill(competition: str, seasons: list[str]) -> None:
         console.print(f"[green]Backfill total: {total} matches[/green]")
     finally:
         await engine.dispose()
+
+
+@app.command()
+def history(
+    tournament: list[str] = typer.Option(  # noqa: B008
+        ["FIFA World Cup"], "--tournament", help="Tournament name(s) to filter."
+    ),
+    since: str = typer.Option("2010-01-01", help="Minimum date (YYYY-MM-DD)."),
+) -> None:
+    """Ingest international match history from the open CSV dataset."""
+    asyncio.run(_history(tournament, since))
+
+
+async def _history(tournaments: list[str], since: str) -> None:
+    from datetime import UTC
+    from datetime import datetime as _dt
+
+    from analytis.application.ingest_international_history import (
+        IngestInternationalHistoryUseCase,
+        InternationalHistoryParams,
+    )
+    from analytis.ingestion.adapters.international_results import (
+        InternationalResultsAdapter,
+    )
+
+    settings = get_settings()
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            adapter = InternationalResultsAdapter(client=client)
+            use_case = IngestInternationalHistoryUseCase(factory, adapter)
+            params = InternationalHistoryParams(
+                tournaments=set(tournaments),
+                min_date=_dt.fromisoformat(since).replace(tzinfo=UTC),
+            )
+            result = await use_case.execute(params)
+        console.print(
+            f"[green]Ingested {result.records_touched} historical matches "
+            f"({', '.join(sorted(tournaments))} since {since})[/green]"
+        )
+    finally:
+        await engine.dispose()
