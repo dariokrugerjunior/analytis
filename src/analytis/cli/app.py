@@ -5,7 +5,7 @@ import sys
 
 import typer
 
-from analytis.cli import api, backtest, bets, db, ingest, odds, score, train
+from analytis.cli import api, backtest, bets, db, frontend, ingest, odds, score, train
 from analytis.config import get_settings
 from analytis.logging import configure_logging
 
@@ -27,6 +27,7 @@ app.add_typer(score.app, name="score", help="Score matches.")
 app.add_typer(odds.app, name="odds", help="Odds ingestion.")
 app.add_typer(backtest.app, name="backtest", help="Walk-forward backtests.")
 app.add_typer(bets.app, name="bets", help="Value bet discovery.")
+app.add_typer(frontend.app, name="frontend", help="Frontend operations.")
 
 
 @app.callback()
