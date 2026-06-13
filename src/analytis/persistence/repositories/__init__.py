@@ -1,5 +1,6 @@
 """Repository pattern — hides ORM details from the rest of the system."""
 
+from analytis.persistence.repositories.bets import ValueBetRepository
 from analytis.persistence.repositories.competition import CompetitionRepository
 from analytis.persistence.repositories.elo import EloHistoryRepository
 from analytis.persistence.repositories.feature_snapshot import (
@@ -26,4 +27,5 @@ __all__ = [
     "OddsRepository",
     "SeasonRepository",
     "TeamRepository",
+    "ValueBetRepository",
 ]
