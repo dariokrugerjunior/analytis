@@ -65,14 +65,20 @@ class InternationalResultsAdapter:
                 continue
             home = row["home_team"].strip()
             away = row["away_team"].strip()
+            home_score_raw = row["home_score"].strip()
+            away_score_raw = row["away_score"].strip()
+            if home_score_raw in ("", "NA") or away_score_raw in ("", "NA"):
+                # Dataset uses "NA" for matches without confirmed result;
+                # skip them — they cannot train Dixon-Coles or ELO.
+                continue
             result.append(
                 InternationalMatchDTO(
                     source_id=self.source_id,
                     external_id=f"{row['date'].strip()}_{home}_{away}".replace(" ", "_"),
                     home_team_name=home,
                     away_team_name=away,
-                    home_goals=int(row["home_score"]),
-                    away_goals=int(row["away_score"]),
+                    home_goals=int(home_score_raw),
+                    away_goals=int(away_score_raw),
                     kickoff_utc=kickoff,
                     tournament=tour,
                     city=row["city"].strip() or None,
