@@ -2,7 +2,7 @@
 
 import typer
 
-from analytis.cli import db
+from analytis.cli import api, db
 from analytis.config import get_settings
 from analytis.logging import configure_logging
 
@@ -14,6 +14,7 @@ app = typer.Typer(
 )
 
 app.add_typer(db.app, name="db", help="Database operations.")
+app.add_typer(api.app, name="api", help="HTTP API server.")
 
 
 @app.callback()

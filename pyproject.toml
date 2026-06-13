@@ -80,7 +80,10 @@ markers = [
     "integration: tests that require external services (Postgres, network)",
 ]
 asyncio_mode = "auto"
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    "ignore:Using `httpx` with `starlette.testclient`:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src/analytis"]
