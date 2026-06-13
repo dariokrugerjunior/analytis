@@ -68,7 +68,7 @@ class TheOddsApiAdapter:
         self,
         *,
         sport_key: str = "soccer_fifa_world_cup",
-        markets: tuple[str, ...] = ("h2h", "totals", "btts"),
+        markets: tuple[str, ...] = ("h2h", "totals"),
         regions: str = "eu,us,uk",
     ) -> Iterable[TheOddsEvent]:
         data = await self._get(
