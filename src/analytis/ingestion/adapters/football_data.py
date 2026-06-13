@@ -90,6 +90,10 @@ class FootballDataAdapter:
             full = m.get("score", {}).get("fullTime", {}) or {}
             home = m["homeTeam"]
             away = m["awayTeam"]
+            if not home.get("name") or not away.get("name"):
+                # Knockout placeholders ("Winner Group A vs Runner-up Group B")
+                # have null team names; skip until the bracket resolves.
+                continue
             result.append(
                 MatchDTO(
                     source_id=self.source_id,

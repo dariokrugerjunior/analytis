@@ -1,10 +1,16 @@
 """CLI entry point."""
 
+import asyncio
+import sys
+
 import typer
 
 from analytis.cli import api, db, ingest
 from analytis.config import get_settings
 from analytis.logging import configure_logging
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 app = typer.Typer(
     name="analytis",

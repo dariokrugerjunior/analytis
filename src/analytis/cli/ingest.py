@@ -80,7 +80,7 @@ async def _backfill(competition: str, seasons: list[str]) -> None:
             use_case = IngestFixturesUseCase(factory, adapter)
             total = 0
             for season in seasons:
-                console.print(f"→ season={season}")
+                console.print(f"-> season={season}")
                 result = await use_case.execute(FixturesParams(competition, season))
                 total += result.records_touched
                 console.print(f"   {result.records_touched} matches")
