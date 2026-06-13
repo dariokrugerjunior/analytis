@@ -9,11 +9,25 @@ from analytis.persistence.orm.catalog import (
     TeamORM,
     VenueORM,
 )
+from analytis.persistence.orm.inference import (
+    FeatureSnapshotORM,
+    ModelVersionORM,
+    PredictionORM,
+)
+from analytis.persistence.orm.ingestion import DataSourceORM, IngestionRunORM
+from analytis.persistence.orm.matches import MatchLineupORM, MatchORM
 
 __all__ = [
     "Base",
     "CompetitionORM",
+    "DataSourceORM",
+    "FeatureSnapshotORM",
+    "IngestionRunORM",
+    "MatchLineupORM",
+    "MatchORM",
+    "ModelVersionORM",
     "PlayerORM",
+    "PredictionORM",
     "RefereeORM",
     "SeasonORM",
     "TeamORM",
