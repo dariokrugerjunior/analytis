@@ -2,6 +2,9 @@
 
 from analytis.persistence.repositories.competition import CompetitionRepository
 from analytis.persistence.repositories.elo import EloHistoryRepository
+from analytis.persistence.repositories.feature_snapshot import (
+    FeatureSnapshotRepository,
+)
 from analytis.persistence.repositories.ingestion import (
     DataSourceRepository,
     IngestionRunRepository,
@@ -14,6 +17,7 @@ __all__ = [
     "CompetitionRepository",
     "DataSourceRepository",
     "EloHistoryRepository",
+    "FeatureSnapshotRepository",
     "IngestionRunRepository",
     "MatchRepository",
     "SeasonRepository",

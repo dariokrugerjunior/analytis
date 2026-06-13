@@ -1,6 +1,9 @@
 """Match repository."""
 
-from sqlalchemy import select
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from analytis.domain.ids import SeasonId
@@ -44,6 +47,57 @@ class MatchRepository:
     async def list_by_season(self, season_id: SeasonId) -> list[Match]:
         result = await self._session.scalars(
             select(MatchORM).where(MatchORM.season_id == season_id)
+        )
+        return [_to_domain(o) for o in result.all()]
+
+    async def list_past_for_team(
+        self,
+        team_id: UUID,
+        as_of: datetime,
+        *,
+        limit: int = 20,
+    ) -> list[Match]:
+        """Return up to `limit` finished matches involving `team_id` BEFORE `as_of`,
+        ordered most-recent first."""
+        result = await self._session.scalars(
+            select(MatchORM)
+            .where(
+                MatchORM.kickoff_utc < as_of,
+                MatchORM.status == "finished",
+                or_(
+                    MatchORM.home_team_id == team_id,
+                    MatchORM.away_team_id == team_id,
+                ),
+            )
+            .order_by(MatchORM.kickoff_utc.desc())
+            .limit(limit)
+        )
+        return [_to_domain(o) for o in result.all()]
+
+    async def list_h2h(
+        self,
+        home_team_id: UUID,
+        away_team_id: UUID,
+        as_of: datetime,
+        *,
+        limit: int = 10,
+    ) -> list[Match]:
+        """Return up to `limit` finished matches between the two teams
+        BEFORE `as_of`, ordered most-recent first."""
+        result = await self._session.scalars(
+            select(MatchORM)
+            .where(
+                MatchORM.kickoff_utc < as_of,
+                MatchORM.status == "finished",
+                or_(
+                    (MatchORM.home_team_id == home_team_id)
+                    & (MatchORM.away_team_id == away_team_id),
+                    (MatchORM.home_team_id == away_team_id)
+                    & (MatchORM.away_team_id == home_team_id),
+                ),
+            )
+            .order_by(MatchORM.kickoff_utc.desc())
+            .limit(limit)
         )
         return [_to_domain(o) for o in result.all()]
 
