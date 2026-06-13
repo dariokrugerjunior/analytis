@@ -5,7 +5,7 @@ import sys
 
 import typer
 
-from analytis.cli import api, db, ingest, train
+from analytis.cli import api, db, ingest, score, train
 from analytis.config import get_settings
 from analytis.logging import configure_logging
 
@@ -23,6 +23,7 @@ app.add_typer(db.app, name="db", help="Database operations.")
 app.add_typer(api.app, name="api", help="HTTP API server.")
 app.add_typer(ingest.app, name="ingest", help="Data ingestion.")
 app.add_typer(train.app, name="train", help="Model training.")
+app.add_typer(score.app, name="score", help="Score matches.")
 
 
 @app.callback()
