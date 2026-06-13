@@ -35,3 +35,14 @@ def test_settings_log_level_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_settings_loads_optional_odds_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANALYTIS_DATABASE_URL", "postgresql+psycopg://u:p@h/d")
+    monkeypatch.setenv("ANALYTIS_API_KEY", "x")
+    monkeypatch.setenv("ANALYTIS_THE_ODDS_API_KEY", "abc123")
+
+    settings = Settings()
+    assert settings.the_odds_api_key is not None
+    assert settings.the_odds_api_key.get_secret_value() == "abc123"
+    assert settings.the_odds_api_base_url.startswith("https://")

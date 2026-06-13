@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     football_data_api_key: SecretStr | None = None
     elo_ratings_url: str = "http://www.eloratings.net/World.tsv"
+    the_odds_api_key: SecretStr | None = None
+    the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
 
 
 def get_settings() -> Settings:
