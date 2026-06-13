@@ -1,3 +1,5 @@
+import { Skeleton } from "@/components/ui/skeleton";
+import { ValueBetCard } from "@/components/bets/ValueBetCard";
 import type { ValueBetsList } from "@/lib/api";
 
 interface Props {
@@ -7,13 +9,31 @@ interface Props {
 }
 
 export function ValueBetsTab({ valueBets, isLoading }: Props) {
-  if (isLoading) return <p className="text-fg-muted text-sm">Carregando bets...</p>;
-  if (!valueBets || valueBets.items.length === 0) {
-    return <p className="text-fg-muted text-sm">Nenhum value bet encontrado.</p>;
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+      </div>
+    );
   }
+  if (!valueBets || valueBets.items.length === 0) {
+    return (
+      <p className="text-fg-muted text-sm py-8 text-center">
+        Nenhum value bet encontrado.
+        <br />
+        Rode <code>analytis bets find-value --match-id ... --model ...</code> primeiro.
+      </p>
+    );
+  }
+
+  const sorted = [...valueBets.items].sort((a, b) => b.edge - a.edge);
+
   return (
-    <div className="text-fg-muted text-sm">
-      {valueBets.items.length} bet(s) — detalhe em breve (Task 14).
+    <div className="space-y-3 pb-6">
+      {sorted.map((bet) => (
+        <ValueBetCard key={bet.id} bet={bet} />
+      ))}
     </div>
   );
 }
