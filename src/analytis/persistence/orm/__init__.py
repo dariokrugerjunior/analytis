@@ -9,6 +9,7 @@ from analytis.persistence.orm.catalog import (
     TeamORM,
     VenueORM,
 )
+from analytis.persistence.orm.elo import EloHistoryORM
 from analytis.persistence.orm.inference import (
     FeatureSnapshotORM,
     ModelVersionORM,
@@ -21,6 +22,7 @@ __all__ = [
     "Base",
     "CompetitionORM",
     "DataSourceORM",
+    "EloHistoryORM",
     "FeatureSnapshotORM",
     "IngestionRunORM",
     "MatchLineupORM",

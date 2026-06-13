@@ -51,6 +51,7 @@ class TeamORM(Base, TimestampMixin):
     short_name: Mapped[str] = mapped_column(String(50), nullable=False)
     team_type: Mapped[str] = mapped_column(String(20), nullable=False)
     country: Mapped[str] = mapped_column(String(10), nullable=False)
+    confederation: Mapped[str | None] = mapped_column(String(20), nullable=True)
     external_ids: Mapped[dict[str, str]] = mapped_column(default=dict, nullable=False)
 
 
