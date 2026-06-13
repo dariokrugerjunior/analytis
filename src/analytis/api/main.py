@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 
 from analytis import __version__
-from analytis.api.routes import health
+from analytis.api.routes import health, models, predictions
 
 
 def create_app() -> FastAPI:
@@ -16,6 +16,8 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
     app.include_router(health.router, prefix="/v1")
+    app.include_router(predictions.router, prefix="/v1")
+    app.include_router(models.router, prefix="/v1")
     return app
 
 
