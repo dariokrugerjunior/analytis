@@ -142,3 +142,68 @@ async def get_clv_summary(
             for row in rows
         ]
         return CLVSummaryList(items=items)
+
+
+class ClvTimelinePoint(BaseModel):
+    date: str  # ISO YYYY-MM-DD
+    cumulative_clv: float
+    n_bets_cumulative: int
+
+
+class ClvTimelineResponse(BaseModel):
+    model_version: str
+    points: list[ClvTimelinePoint]
+
+
+@router.get(
+    "/bets/clv-timeline",
+    response_model=ClvTimelineResponse,
+    dependencies=[Depends(require_api_key)],
+)
+async def get_clv_timeline(
+    model: str,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> ClvTimelineResponse:
+    async with _session(settings) as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(
+                        ValueBetORM.found_at,
+                        ValueBetORM.closing_clv,
+                    )
+                    .join(
+                        ModelVersionORM,
+                        ValueBetORM.model_version_id == ModelVersionORM.id,
+                    )
+                    .where(
+                        ModelVersionORM.name == model,
+                        ValueBetORM.closing_clv.is_not(None),
+                    )
+                    .order_by(ValueBetORM.found_at.asc())
+                )
+            ).all()
+        )
+
+        # Aggregate per day
+        per_day: dict[str, list[float]] = {}
+        for row in rows:
+            day = row.found_at.date().isoformat()
+            per_day.setdefault(day, []).append(float(row.closing_clv))
+
+        # Build cumulative timeline
+        points: list[ClvTimelinePoint] = []
+        cum_clv = 0.0
+        cum_bets = 0
+        for day in sorted(per_day.keys()):
+            for clv in per_day[day]:
+                cum_clv += clv
+                cum_bets += 1
+            points.append(
+                ClvTimelinePoint(
+                    date=day,
+                    cumulative_clv=cum_clv,
+                    n_bets_cumulative=cum_bets,
+                )
+            )
+        return ClvTimelineResponse(model_version=model, points=points)

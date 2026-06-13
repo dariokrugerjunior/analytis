@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/clv/StatCard";
+import { CLVChart } from "@/components/clv/CLVChart";
 import { useClvSummary } from "@/hooks/useClvSummary";
 
 function fmtNumber(v: number | null | undefined, digits = 3): string {
@@ -154,6 +155,26 @@ export default function ClvSummaryPage() {
               </Card>
             )}
           </section>
+
+          {data && data.items.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">
+                Timeline por modelo
+              </h3>
+              <div className="space-y-3">
+                {data.items
+                  .filter((it) => it.n_with_clv > 0)
+                  .map((item) => (
+                    <CLVChart key={item.model_version} modelVersion={item.model_version} />
+                  ))}
+                {data.items.every((it) => it.n_with_clv === 0) && (
+                  <p className="text-fg-muted text-sm py-4 text-center">
+                    Nenhum modelo tem bets com CLV ainda.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>

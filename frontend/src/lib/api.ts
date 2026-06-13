@@ -100,6 +100,17 @@ export interface ValueBetsList {
   items: ValueBet[];
 }
 
+export interface ClvTimelinePoint {
+  date: string; // ISO YYYY-MM-DD
+  cumulative_clv: number;
+  n_bets_cumulative: number;
+}
+
+export interface ClvTimelineResponse {
+  model_version: string;
+  points: ClvTimelinePoint[];
+}
+
 export interface ClvSummary {
   model_version: string;
   n_bets: number;
@@ -122,4 +133,6 @@ export const api = {
   getMatchValueBets: (matchId: string) =>
     request<ValueBetsList>(`/matches/${matchId}/value-bets`),
   getClvSummary: () => request<ClvSummaryList>(`/bets/clv-summary`),
+  getClvTimeline: (model: string) =>
+    request<ClvTimelineResponse>(`/bets/clv-timeline?model=${encodeURIComponent(model)}`),
 };
