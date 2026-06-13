@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUpcomingMatches } from "@/hooks/useMatches";
+import { useMatchCardSummaries } from "@/hooks/useMatchCardSummary";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,8 @@ export default function HomePage() {
         ) ?? [],
     [data],
   );
+
+  const summaries = useMatchCardSummaries(sortedMatches);
 
   return (
     <div className="space-y-4">
@@ -53,20 +56,28 @@ export default function HomePage() {
 
       {isError && (
         <p className="text-sm text-brand-danger">
-          Não foi possível carregar os jogos. Verifique se o backend está online.
+          Não foi possível carregar os jogos.
         </p>
       )}
 
       {!isLoading && sortedMatches.length === 0 && (
         <p className="text-fg-muted text-sm py-8 text-center">
-          Nenhum jogo nesse intervalo. Tente ampliar pra "Semana".
+          Nenhum jogo nesse intervalo.
         </p>
       )}
 
       <div className="space-y-3">
-        {sortedMatches.map((m) => (
-          <MatchCard key={m.id} match={m} />
-        ))}
+        {sortedMatches.map((m) => {
+          const s = summaries.get(m.id);
+          return (
+            <MatchCard
+              key={m.id}
+              match={m}
+              {...(s?.probs ? { probs: s.probs } : {})}
+              valueBetsCount={s?.valueBetsCount ?? 0}
+            />
+          );
+        })}
       </div>
     </div>
   );
