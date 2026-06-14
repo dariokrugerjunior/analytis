@@ -1,5 +1,8 @@
 """CLI commands for the HTTP API server."""
 
+import asyncio
+import sys
+
 import typer
 import uvicorn
 
@@ -13,10 +16,23 @@ def serve(
     reload: bool = typer.Option(False, help="Enable auto-reload (dev only)."),
 ) -> None:
     """Start the FastAPI server."""
-    uvicorn.run(
-        "analytis.api.main:app",
-        host=host,
-        port=port,
-        reload=reload,
-        log_config=None,
-    )
+    if sys.platform == "win32":
+        # psycopg async needs SelectorEventLoop; uvicorn forces Proactor by default.
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        config = uvicorn.Config(
+            "analytis.api.main:app",
+            host=host,
+            port=port,
+            reload=reload,
+            log_config=None,
+            loop="none",
+        )
+        asyncio.run(uvicorn.Server(config).serve())
+    else:
+        uvicorn.run(
+            "analytis.api.main:app",
+            host=host,
+            port=port,
+            reload=reload,
+            log_config=None,
+        )
