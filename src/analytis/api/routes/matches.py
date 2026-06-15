@@ -53,6 +53,12 @@ class MatchesList(BaseModel):
 async def list_matches(
     upcoming: bool = Query(False),
     days: int = Query(7, ge=1, le=30),
+    kickoff_from: datetime | None = Query(  # noqa: B008
+        None, description="Inclusive lower bound on kickoff_utc (ISO 8601)."
+    ),
+    kickoff_to: datetime | None = Query(  # noqa: B008
+        None, description="Inclusive upper bound on kickoff_utc (ISO 8601)."
+    ),
     settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> MatchesList:
     async with _session(settings) as session:
@@ -60,7 +66,12 @@ async def list_matches(
         id_to_name: dict[UUID, str] = {row.id: row.name for row in team_rows}
 
         stmt = select(MatchORM)
-        if upcoming:
+        if kickoff_from is not None or kickoff_to is not None:
+            if kickoff_from is not None:
+                stmt = stmt.where(MatchORM.kickoff_utc >= kickoff_from)
+            if kickoff_to is not None:
+                stmt = stmt.where(MatchORM.kickoff_utc <= kickoff_to)
+        elif upcoming:
             now = datetime.now(UTC)
             stmt = stmt.where(
                 MatchORM.kickoff_utc >= now,

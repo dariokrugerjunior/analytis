@@ -153,6 +153,11 @@ export interface MatchExplanation {
 export const api = {
   listUpcomingMatches: (days = 7) =>
     request<MatchesList>(`/matches?upcoming=true&days=${days}`),
+  listMatchesInWindow: (kickoffFrom: Date, kickoffTo: Date) =>
+    request<MatchesList>(
+      `/matches?kickoff_from=${encodeURIComponent(kickoffFrom.toISOString())}` +
+        `&kickoff_to=${encodeURIComponent(kickoffTo.toISOString())}`,
+    ),
   getMatchPredictions: (matchId: string) =>
     request<MatchPredictions>(`/matches/${matchId}/predictions`),
   getMatchOdds: (matchId: string) => request<OddsResponse>(`/matches/${matchId}/odds`),

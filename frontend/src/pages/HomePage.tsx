@@ -1,19 +1,53 @@
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUpcomingMatches } from "@/hooks/useMatches";
+import { useMatchesInWindow, useUpcomingMatches } from "@/hooks/useMatches";
 import { useMatchCardSummaries } from "@/hooks/useMatchCardSummary";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { Button } from "@/components/ui/button";
 
+type DayFilter = { kind: "day"; label: "Hoje" | "Amanhã"; offsetDays: 0 | 1 };
+type UpcomingFilter = { kind: "upcoming"; label: "Semana"; days: 7 };
+type Filter = DayFilter | UpcomingFilter;
+
 const FILTERS = [
-  { label: "Hoje", days: 1 },
-  { label: "Amanhã", days: 2 },
-  { label: "Semana", days: 7 },
-] as const;
+  { kind: "day", label: "Hoje", offsetDays: 0 },
+  { kind: "day", label: "Amanhã", offsetDays: 1 },
+  { kind: "upcoming", label: "Semana", days: 7 },
+] as const satisfies readonly Filter[];
+
+const DEFAULT_FILTER: Filter = FILTERS[0];
+
+function localDayWindow(offsetDays: number): { from: Date; to: Date } {
+  const from = new Date();
+  from.setDate(from.getDate() + offsetDays);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
 
 export default function HomePage() {
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>(FILTERS[0]);
-  const { data, isLoading, isError } = useUpcomingMatches(filter.days);
+  const [filter, setFilter] = useState<Filter>(DEFAULT_FILTER);
+
+  const window = useMemo(
+    () => (filter.kind === "day" ? localDayWindow(filter.offsetDays) : null),
+    [filter],
+  );
+
+  const dayQuery = useMatchesInWindow(
+    window?.from ?? new Date(0),
+    window?.to ?? new Date(0),
+    filter.kind === "day",
+  );
+  const upcomingQuery = useUpcomingMatches(
+    filter.kind === "upcoming" ? filter.days : 7,
+    filter.kind === "upcoming",
+  );
+
+  const active = filter.kind === "day" ? dayQuery : upcomingQuery;
+  const data = active.data;
+  const isLoading = active.isLoading;
+  const isError = active.isError;
 
   const sortedMatches = useMemo(
     () =>

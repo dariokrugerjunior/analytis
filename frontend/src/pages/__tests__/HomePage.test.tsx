@@ -6,15 +6,30 @@ import HomePage from "@/pages/HomePage";
 
 vi.mock("@/hooks/useMatches", () => ({
   useUpcomingMatches: vi.fn(),
+  useMatchesInWindow: vi.fn(),
 }));
 
 vi.mock("@/hooks/useMatchCardSummary", () => ({
   useMatchCardSummaries: vi.fn(() => new Map()),
 }));
 
-import { useUpcomingMatches } from "@/hooks/useMatches";
+import { useMatchesInWindow, useUpcomingMatches } from "@/hooks/useMatches";
 
 const mockedUseUpcomingMatches = vi.mocked(useUpcomingMatches);
+const mockedUseMatchesInWindow = vi.mocked(useMatchesInWindow);
+
+function setActiveQuery(
+  state: { data: unknown; isLoading: boolean; isError: boolean },
+) {
+  mockedUseMatchesInWindow.mockReturnValue(
+    state as unknown as ReturnType<typeof useMatchesInWindow>,
+  );
+  mockedUseUpcomingMatches.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+  } as unknown as ReturnType<typeof useUpcomingMatches>);
+}
 
 function renderPage() {
   const Wrapper = createWrapper();
@@ -29,15 +44,12 @@ function renderPage() {
 
 beforeEach(() => {
   mockedUseUpcomingMatches.mockReset();
+  mockedUseMatchesInWindow.mockReset();
 });
 
 describe("HomePage", () => {
   it("renders header and loading state", () => {
-    mockedUseUpcomingMatches.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    } as unknown as ReturnType<typeof useUpcomingMatches>);
+    setActiveQuery({ data: undefined, isLoading: true, isError: false });
 
     renderPage();
     expect(
@@ -46,11 +58,7 @@ describe("HomePage", () => {
   });
 
   it("renders empty state when there are no matches", () => {
-    mockedUseUpcomingMatches.mockReturnValue({
-      data: { items: [] },
-      isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useUpcomingMatches>);
+    setActiveQuery({ data: { items: [] }, isLoading: false, isError: false });
 
     renderPage();
     expect(
@@ -59,11 +67,7 @@ describe("HomePage", () => {
   });
 
   it("renders error state", () => {
-    mockedUseUpcomingMatches.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-    } as unknown as ReturnType<typeof useUpcomingMatches>);
+    setActiveQuery({ data: undefined, isLoading: false, isError: true });
 
     renderPage();
     expect(
