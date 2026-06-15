@@ -32,3 +32,28 @@ def test_remove_overround_two_way() -> None:
     fair = remove_overround([1.91, 1.91])
     assert sum(fair) == pytest.approx(1.0, abs=1e-9)
     assert fair[0] == pytest.approx(0.5)
+
+
+def test_remove_overround_pinnacle_under_over() -> None:
+    # Pinnacle-style book with ~0% overround.
+    fair = remove_overround([1.96, 1.94])
+    assert fair[0] == pytest.approx(0.4974, abs=1e-3)
+    assert fair[1] == pytest.approx(0.5026, abs=1e-3)
+    assert sum(fair) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_remove_overround_high_juice() -> None:
+    # 5% overround book on a symmetric market — fair probs are still 0.5/0.5.
+    fair = remove_overround([2.0, 2.0])
+    assert fair[0] == pytest.approx(0.5, abs=1e-9)
+    assert fair[1] == pytest.approx(0.5, abs=1e-9)
+    assert sum(fair) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_remove_overround_three_way_symmetric() -> None:
+    # 1x2 with all three @ 2.0 (overround 50%). Fair probs should be 1/3.
+    fair = remove_overround([2.0, 2.0, 2.0])
+    assert fair[0] == pytest.approx(1 / 3, abs=1e-9)
+    assert fair[1] == pytest.approx(1 / 3, abs=1e-9)
+    assert fair[2] == pytest.approx(1 / 3, abs=1e-9)
+    assert sum(fair) == pytest.approx(1.0, abs=1e-9)

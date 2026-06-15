@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from analytis.modeling.ev import edge as compute_edge
+from analytis.modeling.ev import remove_overround
 from analytis.modeling.kelly import kelly_fraction, kelly_stake_units
 from analytis.persistence.orm.inference import PredictionORM
 from analytis.persistence.repositories import OddsRepository, ValueBetRepository
@@ -27,6 +28,27 @@ class FindValueBetsParams:
 @dataclass
 class FindValueBetsResult:
     bets_found: int
+
+
+def _devig_outcomes(
+    best_by_outcome: dict[str, tuple[float, str]],
+) -> dict[str, float]:
+    """Compute fair (devigged) probabilities per outcome for a single market.
+
+    Removes the bookmaker's overround from the best-of-market odds so the
+    resulting probabilities sum to 1.0. If only a single outcome is present
+    (incomplete odds), devigging is impossible — fall back to the raw implied
+    probability ``1 / odds`` for that outcome.
+    """
+    if not best_by_outcome:
+        return {}
+    if len(best_by_outcome) < 2:
+        # Cannot devig with a single outcome — fall back to raw implied prob.
+        return {outcome: 1.0 / odds for outcome, (odds, _bm) in best_by_outcome.items()}
+    outcomes_sorted = sorted(best_by_outcome.keys())
+    odds_list = [best_by_outcome[o][0] for o in outcomes_sorted]
+    fair_probs = remove_overround(odds_list)
+    return dict(zip(outcomes_sorted, fair_probs, strict=True))
 
 
 class FindValueBetsUseCase:
@@ -60,12 +82,14 @@ class FindValueBetsUseCase:
                     if cur is None or q.decimal_odds > cur[0]:
                         best_by_outcome[q.outcome] = (q.decimal_odds, q.bookmaker)
 
+                fair_by_outcome = _devig_outcomes(best_by_outcome)
+
                 for outcome, (best_odds, bm) in best_by_outcome.items():
                     pred = our_by_outcome.get((market, outcome))
                     if pred is None:
                         continue
                     our_prob = pred.prob
-                    market_prob = 1.0 / best_odds
+                    market_prob = fair_by_outcome[outcome]
                     e = compute_edge(our_prob=our_prob, decimal_odds=best_odds)
                     if e < params.min_edge:
                         continue
