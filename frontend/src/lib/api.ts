@@ -123,6 +123,32 @@ export interface ClvSummaryList {
   items: ClvSummary[];
 }
 
+export interface ScorelineItem {
+  home: number;
+  away: number;
+  prob: number;
+}
+
+export interface ScorelineGrid {
+  match_id: string;
+  home_team: string;
+  away_team: string;
+  model_version: string;
+  max_goals: number;
+  lambda_home: number;
+  lambda_away: number;
+  grid: number[][];
+  top_scorelines: ScorelineItem[];
+  most_likely: ScorelineItem;
+}
+
+export interface MatchExplanation {
+  match_id: string;
+  explanation: string;
+  model_used: string;
+  dc_model: string;
+}
+
 // ----- Endpoints -----
 export const api = {
   listUpcomingMatches: (days = 7) =>
@@ -135,4 +161,10 @@ export const api = {
   getClvSummary: () => request<ClvSummaryList>(`/bets/clv-summary`),
   getClvTimeline: (model: string) =>
     request<ClvTimelineResponse>(`/bets/clv-timeline?model=${encodeURIComponent(model)}`),
+  getScorelineGrid: (matchId: string, maxGoals = 6, top = 8) =>
+    request<ScorelineGrid>(
+      `/matches/${matchId}/scoreline-grid?max_goals=${maxGoals}&top=${top}`,
+    ),
+  getMatchExplanation: (matchId: string) =>
+    request<MatchExplanation>(`/matches/${matchId}/explain`),
 };

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     the_odds_api_key: SecretStr | None = None
     the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
 
+    openai_api_key: SecretStr | None = None
+    openai_model: str = "gpt-4o-mini"
+    openai_base_url: str | None = None
+
 
 def get_settings() -> Settings:
     """Factory for DI — keeps `Settings()` call in one place."""

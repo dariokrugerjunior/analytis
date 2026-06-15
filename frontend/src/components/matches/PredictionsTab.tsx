@@ -1,6 +1,11 @@
+import { useState } from "react";
 import type { MatchPredictions } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { useScorelineGrid } from "@/hooks/useScorelineGrid";
+import { useMatchExplanation } from "@/hooks/useMatchExplanation";
 import { PredictionGroup } from "./PredictionGroup";
+import { ScorelineHeatmap } from "./ScorelineHeatmap";
 
 interface Props {
   matchId: string;
@@ -8,7 +13,10 @@ interface Props {
   isLoading: boolean;
 }
 
-export function PredictionsTab({ predictions, isLoading }: Props) {
+export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
+  const scoreline = useScorelineGrid(matchId);
+  const [explainOn, setExplainOn] = useState(false);
+  const explanation = useMatchExplanation(matchId, explainOn);
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -64,12 +72,58 @@ export function PredictionsTab({ predictions, isLoading }: Props) {
           ]}
         />
       )}
+      {scoreline.isLoading && <Skeleton className="h-48" />}
+      {scoreline.data && <ScorelineHeatmap data={scoreline.data} />}
+      {scoreline.error && (
+        <p className="text-[11px] text-fg-subtle italic border-t border-white/10 pt-3">
+          Placares exatos indisponíveis: {scoreline.error.message}
+        </p>
+      )}
+
+      <section className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">
+            Análise por IA
+          </h3>
+          {explanation.data && (
+            <span className="text-[11px] text-fg-subtle font-mono">
+              {explanation.data.model_used}
+            </span>
+          )}
+        </div>
+        {!explainOn && !explanation.data && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => setExplainOn(true)}
+          >
+            💡 Explicar previsões
+          </Button>
+        )}
+        {explanation.isLoading && (
+          <div className="space-y-2 rounded-lg border border-white/10 bg-bg-elevated p-4">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-4/5" />
+            <Skeleton className="h-3 w-3/5" />
+          </div>
+        )}
+        {explanation.data && (
+          <div className="rounded-lg border border-white/10 bg-bg-elevated p-4 text-sm leading-relaxed whitespace-pre-wrap">
+            {explanation.data.explanation}
+          </div>
+        )}
+        {explanation.error && (
+          <div className="rounded-lg border border-brand-danger/30 bg-bg-elevated p-3 text-xs text-fg-muted">
+            {explanation.error.message}
+          </div>
+        )}
+      </section>
+
       <p className="text-[11px] text-fg-subtle italic">
         Modelo: {predictions.predictions[0]?.model_version} · Atualizado em{" "}
         {new Date(predictions.predictions[0]?.created_at ?? "").toLocaleString("pt-BR")}
-      </p>
-      <p className="text-[11px] text-fg-subtle italic border-t border-white/10 pt-3">
-        Heatmap de placares exige endpoint adicional (não no MVP).
       </p>
     </div>
   );
