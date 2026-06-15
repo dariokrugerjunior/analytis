@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_base_url: str | None = None
 
+    auto_ingest_enabled: bool = True
+    auto_ingest_competition: str = "2000"
+    auto_ingest_season: str = "2026"
+    auto_ingest_interval_seconds: int = 120
+    auto_ingest_window_before_kickoff_minutes: int = 30
+    auto_ingest_window_after_kickoff_minutes: int = 180
+
 
 def get_settings() -> Settings:
     """Factory for DI — keeps `Settings()` call in one place."""

@@ -1,12 +1,16 @@
 """FastAPI application factory."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+import structlog
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from analytis import __version__
+from analytis.api.auto_ingest import build_scheduler
 from analytis.api.routes import (
     explain,
     health,
@@ -17,6 +21,33 @@ from analytis.api.routes import (
     scoreline,
     value_bets,
 )
+from analytis.config import get_settings
+
+log = structlog.get_logger(__name__)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    built = build_scheduler(settings)
+    if built is None:
+        log.info("auto_ingest_disabled")
+        yield
+        return
+    scheduler, job = built
+    scheduler.start()
+    log.info(
+        "auto_ingest_started",
+        interval_seconds=settings.auto_ingest_interval_seconds,
+        competition=settings.auto_ingest_competition,
+        season=settings.auto_ingest_season,
+    )
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+        await job.aclose()
+        log.info("auto_ingest_stopped")
 
 
 def create_app() -> FastAPI:
@@ -27,6 +58,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url=None,
         openapi_url="/openapi.json",
+        lifespan=_lifespan,
     )
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
