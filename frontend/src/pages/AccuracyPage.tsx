@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AccuracyChart } from "@/components/accuracy/AccuracyChart";
 import { KpiCard } from "@/components/accuracy/KpiCard";
 import { MatchAccuracyTable } from "@/components/accuracy/MatchAccuracyTable";
+import { MatchScorelineChart } from "@/components/accuracy/MatchScorelineChart";
 import { ModelSelector } from "@/components/accuracy/ModelSelector";
 import { useAccuracySummary } from "@/hooks/useAccuracySummary";
 
@@ -138,10 +139,23 @@ export default function AccuracyPage() {
         />
       )}
 
-      <Card className="p-4">
-        <h3 className="text-sm font-medium text-fg-muted mb-2">Acerto cumulativo por fase</h3>
-        <AccuracyChart data={data.timeseries} />
-      </Card>
+      {data.kpis.scoreline ? (
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-fg-muted mb-2">
+            Acerto de placar por jogo
+          </h3>
+          <p className="text-xs text-fg-muted mb-3">
+            Verde 100% = placar exato. Amarelo 50% = vencedor certo, placar diferente.
+            Vermelho 0% = vencedor errado.
+          </p>
+          <MatchScorelineChart rows={data.matches} />
+        </Card>
+      ) : (
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-fg-muted mb-2">Acerto cumulativo por fase</h3>
+          <AccuracyChart data={data.timeseries} />
+        </Card>
+      )}
 
       <section>
         <h3 className="text-base font-semibold mb-2">Jogos</h3>

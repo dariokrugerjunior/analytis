@@ -240,6 +240,9 @@ export interface MatchAccuracyRow {
     ou?: MatchPredictionDetail;
     btts?: MatchPredictionDetail;
   };
+  scoreline_credit: number | null;        // 1.0 exact, 0.5 partial, 0.0 miss, null if non-DC model
+  scoreline_predicted_home: number | null;
+  scoreline_predicted_away: number | null;
 }
 
 export interface AccuracySummary {

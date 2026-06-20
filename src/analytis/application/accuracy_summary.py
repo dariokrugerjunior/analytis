@@ -84,6 +84,11 @@ class MatchRow(BaseModel):
     away_goals: int
     phase: Phase
     predictions: dict[str, MatchPredictionDetail]  # keys: "1x2", "ou", "btts"
+    scoreline_credit: float | None = (
+        None  # 1.0 exact, 0.5 partial, 0.0 miss, None if model has no scoreline
+    )
+    scoreline_predicted_home: int | None = None
+    scoreline_predicted_away: int | None = None
 
 
 class AccuracySummary(BaseModel):
@@ -224,13 +229,18 @@ class AccuracySummaryUseCase:
             rows = await self._load_match_rows(session, model.id)
 
             kpis = self._compute_kpis(rows)
+
+            # Compute per-match scoreline credits for DC models (returns {match_id: (credit, pred_h, pred_a)})
+            per_match_scoreline: dict[UUID, tuple[float, int, int]] = {}
             if model.family == "dixon-coles":
                 model_row = await session.get(ModelVersionORM, model.id)
                 if model_row is not None and model_row.artifact_path:
-                    kpis.scoreline = self._compute_scoreline_kpi(model_row, rows)
+                    per_match_scoreline = self._compute_scoreline_per_match(model_row, rows)
+                    if per_match_scoreline:
+                        kpis.scoreline = self._aggregate_scoreline_kpi(per_match_scoreline)
 
             timeseries = self._compute_timeseries(rows)
-            matches = self._serialize_matches(rows)
+            matches = self._serialize_matches(rows, per_match_scoreline)
 
             return AccuracySummary(
                 model=ModelRef(id=model.id, name=model.name, family=model.family),
@@ -240,11 +250,13 @@ class AccuracySummaryUseCase:
                 matches=matches,
             )
 
-    def _compute_scoreline_kpi(
+    def _compute_scoreline_per_match(
         self, model_row: ModelVersionORM, rows: list[_MatchAggregate]
-    ) -> ScorelineKpi | None:
-        """Load DC params and compute most-likely scoreline per match, then
-        aggregate exact/partial/miss with weighted scoring (1.0/0.5/0.0)."""
+    ) -> dict[UUID, tuple[float, int, int]]:
+        """Load DC params and compute most-likely scoreline per match.
+        Returns {match_id: (credit, pred_home, pred_away)} for matches whose
+        teams exist in the trained model.
+        """
         from pathlib import Path
 
         from analytis.modeling.dixon_coles import score_matrix
@@ -253,17 +265,13 @@ class AccuracySummaryUseCase:
         try:
             dc_params = load_params(Path(model_row.artifact_path or ""))
         except (FileNotFoundError, OSError):
-            return None
+            return {}
 
-        exact = 0
-        partial = 0
-        miss = 0
+        result: dict[UUID, tuple[float, int, int]] = {}
         for r in rows:
-            # We don't have team NAMES here directly, but home_team/away_team strings
-            # were resolved in _load_match_rows. Skip silently if either is not in
-            # the model (older training data may not include newer teams).
             home_name = r.home_team
             away_name = r.away_team
+            # Skip silently if either team is not in the trained model.
             if home_name not in dc_params.attack or away_name not in dc_params.attack:
                 continue
 
@@ -281,18 +289,21 @@ class AccuracySummaryUseCase:
                         best_p = p
                         best_i, best_j = i, j
 
-            score = scoreline_partial_score(best_i, best_j, r.home_goals, r.away_goals)
-            if score == 1.0:
-                exact += 1
-            elif score == 0.5:
-                partial += 1
-            else:
-                miss += 1
+            credit = scoreline_partial_score(best_i, best_j, r.home_goals, r.away_goals)
+            result[r.match_id] = (credit, best_i, best_j)
 
+        return result
+
+    @staticmethod
+    def _aggregate_scoreline_kpi(
+        per_match: dict[UUID, tuple[float, int, int]],
+    ) -> ScorelineKpi:
+        """Aggregate per-match scoreline credits into the headline KPI."""
+        exact = sum(1 for credit, _, _ in per_match.values() if credit == 1.0)
+        partial = sum(1 for credit, _, _ in per_match.values() if credit == 0.5)
+        miss = sum(1 for credit, _, _ in per_match.values() if credit == 0.0)
         n = exact + partial + miss
-        if n == 0:
-            return None
-        score_pct = (1.0 * exact + 0.5 * partial) / n
+        score_pct = (1.0 * exact + 0.5 * partial) / n if n else 0.0
         return ScorelineKpi(exact=exact, partial=partial, miss=miss, n=n, score_pct=score_pct)
 
     async def _list_available_models(self, session: AsyncSession) -> list[ModelOption]:
@@ -479,7 +490,12 @@ class AccuracySummaryUseCase:
             out.append(TimeseriesPoint(phase=phase, n=last_n, cumulative=dict(last_cum)))
         return out
 
-    def _serialize_matches(self, rows: list[_MatchAggregate]) -> list[MatchRow]:
+    def _serialize_matches(
+        self,
+        rows: list[_MatchAggregate],
+        scoreline_per_match: dict[UUID, tuple[float, int, int]] | None = None,
+    ) -> list[MatchRow]:
+        scoreline_per_match = scoreline_per_match or {}
         out: list[MatchRow] = []
         for r in sorted(rows, key=lambda a: a.kickoff_utc, reverse=True):
             preds: dict[str, MatchPredictionDetail] = {}
@@ -517,6 +533,11 @@ class AccuracySummaryUseCase:
                     brier=brier_binary(prob=p_yes, outcome=1 if actual_b == "yes" else 0),
                 )
 
+            scoreline_info = scoreline_per_match.get(r.match_id)
+            credit, pred_h, pred_a = (
+                (None, None, None) if scoreline_info is None else scoreline_info
+            )
+
             out.append(
                 MatchRow(
                     match_id=r.match_id,
@@ -527,6 +548,9 @@ class AccuracySummaryUseCase:
                     away_goals=r.away_goals,
                     phase=normalize_phase(r.stage),
                     predictions=preds,
+                    scoreline_credit=credit,
+                    scoreline_predicted_home=pred_h,
+                    scoreline_predicted_away=pred_a,
                 )
             )
         return out
