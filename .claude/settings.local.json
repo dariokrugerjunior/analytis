@@ -4,7 +4,11 @@
       "Bash(git init *)",
       "Bash(rtk git *)",
       "Bash(uv --version)",
-      "Bash(winget install *)"
+      "Bash(winget install *)",
+      "Bash(uv run *)",
+      "Bash(docker compose *)",
+      "Bash(dig +short analytis.zyntra.company @1.1.1.1)",
+      "Bash(ssh -o StrictHostKeyChecking=no ubuntu@163.176.194.231 'test -f /opt/analytis/.cloud-init-done && echo done || tail -3 /var/log/cloud-init-output.log')"
     ]
   }
 }
