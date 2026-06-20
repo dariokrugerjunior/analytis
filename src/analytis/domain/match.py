@@ -35,6 +35,7 @@ class Match(BaseModel):
     referee_id: RefereeId | None = None
     is_home_neutral: bool = False
     status: MatchStatus = MatchStatus.SCHEDULED
+    stage: str | None = None
     home_goals: int | None = Field(default=None, ge=0)
     away_goals: int | None = Field(default=None, ge=0)
     home_corners: int | None = Field(default=None, ge=0)

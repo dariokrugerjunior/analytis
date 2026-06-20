@@ -109,6 +109,7 @@ class FootballDataAdapter:
                     kickoff_utc=_parse_iso(m["utcDate"]),
                     is_home_neutral=is_intl_cup,
                     status=_STATUS_MAP.get(m["status"], "scheduled"),
+                    stage=m.get("stage"),
                     home_goals=full.get("home"),
                     away_goals=full.get("away"),
                     home_corners=None,

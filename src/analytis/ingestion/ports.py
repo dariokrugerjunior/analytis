@@ -50,6 +50,7 @@ class MatchDTO:
     kickoff_utc: datetime
     is_home_neutral: bool
     status: str
+    stage: str | None
     home_goals: int | None
     away_goals: int | None
     home_corners: int | None

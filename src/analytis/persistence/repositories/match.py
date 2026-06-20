@@ -23,6 +23,7 @@ def _to_domain(orm: MatchORM) -> Match:
         referee_id=orm.referee_id,
         is_home_neutral=orm.is_home_neutral,
         status=MatchStatus(orm.status),
+        stage=orm.stage,
         home_goals=orm.home_goals,
         away_goals=orm.away_goals,
         home_corners=orm.home_corners,
@@ -123,6 +124,7 @@ class MatchRepository:
                 "referee_id": match.referee_id,
                 "is_home_neutral": match.is_home_neutral,
                 "status": match.status.value,
+                "stage": match.stage,
                 "home_goals": match.home_goals,
                 "away_goals": match.away_goals,
                 "home_corners": match.home_corners,
@@ -133,6 +135,7 @@ class MatchRepository:
             update_cols=[
                 "kickoff_utc",
                 "status",
+                "stage",
                 "home_goals",
                 "away_goals",
                 "home_corners",

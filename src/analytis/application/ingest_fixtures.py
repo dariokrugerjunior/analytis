@@ -110,6 +110,7 @@ class IngestFixturesUseCase:
                     kickoff_utc=m.kickoff_utc,
                     is_home_neutral=m.is_home_neutral,
                     status=MatchStatus(m.status),
+                    stage=m.stage,
                     home_goals=m.home_goals,
                     away_goals=m.away_goals,
                     home_corners=m.home_corners,

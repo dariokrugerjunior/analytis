@@ -65,6 +65,7 @@ async def test_ingest_fixtures_end_to_end(
             kickoff_utc=datetime(2026, 6, 15, 22, 0, tzinfo=UTC),
             is_home_neutral=True,
             status="finished",
+            stage="GROUP_STAGE",
             home_goals=2,
             away_goals=1,
             home_corners=None,

@@ -46,6 +46,7 @@ class MatchORM(Base, TimestampMixin):
     )
     is_home_neutral: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="scheduled")
+    stage: Mapped[str | None] = mapped_column(String(40), nullable=True)
     home_goals: Mapped[int | None] = mapped_column(Integer, nullable=True)
     away_goals: Mapped[int | None] = mapped_column(Integer, nullable=True)
     home_corners: Mapped[int | None] = mapped_column(Integer, nullable=True)
