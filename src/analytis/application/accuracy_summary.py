@@ -9,7 +9,12 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from analytis.persistence.orm.catalog import TeamORM
+from analytis.persistence.orm.inference import ModelVersionORM, PredictionORM
+from analytis.persistence.orm.matches import MatchORM
 
 Phase = Literal["group", "round_of_16", "quarterfinal", "semifinal", "final"]
 PHASES: tuple[Phase, ...] = ("group", "round_of_16", "quarterfinal", "semifinal", "final")
@@ -71,6 +76,22 @@ class AccuracySummary(BaseModel):
     kpis: Kpis
     timeseries: list[TimeseriesPoint]
     matches: list[MatchRow]
+
+
+@dataclass
+class _MatchAggregate:
+    """Internal: one finished match with its predictions for one model."""
+
+    match_id: UUID
+    kickoff_utc: datetime
+    stage: str | None
+    home_goals: int
+    away_goals: int
+    home_team_id: UUID
+    away_team_id: UUID
+    probs: dict[str, dict[str, float]]
+    home_team: str = ""
+    away_team: str = ""
 
 
 @dataclass
@@ -166,4 +187,258 @@ class AccuracySummaryUseCase:
         self._factory = session_factory
 
     async def execute(self, params: AccuracySummaryParams) -> AccuracySummary:
-        raise NotImplementedError("filled in subsequent tasks")
+        async with self._factory() as session:
+            available = await self._list_available_models(session)
+            if not available:
+                raise ModelNotFoundError("no model has predictions yet")
+
+            model = self._pick_model(available, params.model_name)
+            rows = await self._load_match_rows(session, model.id)
+
+            kpis = self._compute_kpis(rows)
+            timeseries = self._compute_timeseries(rows)
+            matches = self._serialize_matches(rows)
+
+            return AccuracySummary(
+                model=ModelRef(id=model.id, name=model.name, family=model.family),
+                available_models=available,
+                kpis=kpis,
+                timeseries=timeseries,
+                matches=matches,
+            )
+
+    async def _list_available_models(self, session: AsyncSession) -> list[ModelOption]:
+        stmt = (
+            select(
+                ModelVersionORM.id,
+                ModelVersionORM.name,
+                ModelVersionORM.family,
+                func.count(func.distinct(PredictionORM.match_id)).label("n"),
+            )
+            .join(PredictionORM, PredictionORM.model_version_id == ModelVersionORM.id)
+            .group_by(ModelVersionORM.id, ModelVersionORM.name, ModelVersionORM.family)
+            .having(func.count(func.distinct(PredictionORM.match_id)) > 0)
+            .order_by(ModelVersionORM.name)
+        )
+        result = await session.execute(stmt)
+        return [
+            ModelOption(id=r.id, name=r.name, family=r.family, n_predictions=r.n) for r in result
+        ]
+
+    def _pick_model(self, available: list[ModelOption], name: str | None) -> ModelOption:
+        if name is None:
+            return available[0]
+        for m in available:
+            if m.name == name:
+                return m
+        raise ModelNotFoundError(f"model {name!r} not found or has no predictions")
+
+    async def _load_match_rows(
+        self, session: AsyncSession, model_id: UUID
+    ) -> list[_MatchAggregate]:
+        pred_stmt = (
+            select(
+                MatchORM.id,
+                MatchORM.kickoff_utc,
+                MatchORM.stage,
+                MatchORM.home_goals,
+                MatchORM.away_goals,
+                MatchORM.home_team_id,
+                MatchORM.away_team_id,
+                PredictionORM.market,
+                PredictionORM.outcome,
+                PredictionORM.prob,
+            )
+            .join(PredictionORM, PredictionORM.match_id == MatchORM.id)
+            .where(
+                PredictionORM.model_version_id == model_id,
+                MatchORM.status == "finished",
+                MatchORM.home_goals.is_not(None),
+                MatchORM.away_goals.is_not(None),
+            )
+        )
+        result = await session.execute(pred_stmt)
+
+        by_match: dict[UUID, _MatchAggregate] = {}
+        team_ids: set[UUID] = set()
+        for row in result:
+            agg = by_match.setdefault(
+                row.id,
+                _MatchAggregate(
+                    match_id=row.id,
+                    kickoff_utc=row.kickoff_utc,
+                    stage=row.stage,
+                    home_goals=row.home_goals,
+                    away_goals=row.away_goals,
+                    home_team_id=row.home_team_id,
+                    away_team_id=row.away_team_id,
+                    probs={"1x2": {}, "over_under_2_5": {}, "btts": {}},
+                ),
+            )
+            if row.market in agg.probs:
+                agg.probs[row.market][row.outcome] = float(row.prob)
+            team_ids.add(row.home_team_id)
+            team_ids.add(row.away_team_id)
+
+        if team_ids:
+            team_name_stmt = select(TeamORM.id, TeamORM.name).where(TeamORM.id.in_(team_ids))
+            team_rows = (await session.execute(team_name_stmt)).fetchall()
+            team_map: dict[UUID, str] = {r[0]: r[1] for r in team_rows}
+            for agg in by_match.values():
+                agg.home_team = team_map.get(agg.home_team_id, "?")
+                agg.away_team = team_map.get(agg.away_team_id, "?")
+
+        return sorted(by_match.values(), key=lambda a: a.kickoff_utc)
+
+    def _compute_kpis(self, rows: list[_MatchAggregate]) -> Kpis:
+        hits = {"1x2": 0, "ou": 0, "btts": 0}
+        n_by_mkt = {"1x2": 0, "ou": 0, "btts": 0}
+        brier_sums = {"1x2": 0.0, "ou": 0.0, "btts": 0.0}
+
+        for r in rows:
+            if r.probs["1x2"]:
+                top_1x2, _top_p = predicted_1x2_top(r.probs["1x2"])
+                actual_1 = actual_1x2(r.home_goals, r.away_goals)
+                hits["1x2"] += int(top_1x2 == actual_1)
+                n_by_mkt["1x2"] += 1
+                brier_sums["1x2"] += brier_multiclass(probs=r.probs["1x2"], actual=actual_1)
+
+            ou_probs = r.probs["over_under_2_5"]
+            if ou_probs:
+                p_over = ou_probs.get("over", 0.0)
+                if p_over != 0.5:
+                    pred_ou = "over" if p_over > 0.5 else "under"
+                    actual_o = actual_ou(r.home_goals, r.away_goals)
+                    hits["ou"] += int(pred_ou == actual_o)
+                    n_by_mkt["ou"] += 1
+                    brier_sums["ou"] += brier_binary(
+                        prob=p_over, outcome=1 if actual_o == "over" else 0
+                    )
+
+            btts_probs = r.probs["btts"]
+            if btts_probs:
+                p_yes = btts_probs.get("yes", 0.0)
+                if p_yes != 0.5:
+                    pred_b = "yes" if p_yes > 0.5 else "no"
+                    actual_b = actual_btts(r.home_goals, r.away_goals)
+                    hits["btts"] += int(pred_b == actual_b)
+                    n_by_mkt["btts"] += 1
+                    brier_sums["btts"] += brier_binary(
+                        prob=p_yes, outcome=1 if actual_b == "yes" else 0
+                    )
+
+        markets: dict[str, MarketKpi] = {}
+        for key in ("1x2", "ou", "btts"):
+            n = n_by_mkt[key]
+            h = hits[key]
+            rate = (h / n) if n else 0.0
+            low, high = wilson_ci(hits=h, n=n)
+            brier_avg = (brier_sums[key] / n) if n else 0.0
+            markets[key] = MarketKpi(
+                hits=h, n=n, rate=rate, ci_low=low, ci_high=high, brier_avg=brier_avg
+            )
+
+        total_brier_n = sum(n_by_mkt.values())
+        brier_overall = sum(brier_sums.values()) / total_brier_n if total_brier_n else 0.0
+
+        return Kpis(
+            n_matches_evaluated=len(rows),
+            markets=markets,
+            brier_overall=brier_overall,
+        )
+
+    def _compute_timeseries(self, rows: list[_MatchAggregate]) -> list[TimeseriesPoint]:
+        cum_hits = {"1x2": 0, "ou": 0, "btts": 0}
+        cum_n = {"1x2": 0, "ou": 0, "btts": 0}
+        per_phase_n: dict[Phase, int] = {}
+        per_phase_cum: dict[Phase, dict[str, float]] = {}
+
+        for n_matches_processed, r in enumerate(rows, start=1):
+            phase = normalize_phase(r.stage)
+
+            if r.probs["1x2"]:
+                top, _ = predicted_1x2_top(r.probs["1x2"])
+                actual_1 = actual_1x2(r.home_goals, r.away_goals)
+                cum_hits["1x2"] += int(top == actual_1)
+                cum_n["1x2"] += 1
+            if r.probs["over_under_2_5"]:
+                p_over = r.probs["over_under_2_5"].get("over", 0.0)
+                if p_over != 0.5:
+                    pred = "over" if p_over > 0.5 else "under"
+                    actual_o = actual_ou(r.home_goals, r.away_goals)
+                    cum_hits["ou"] += int(pred == actual_o)
+                    cum_n["ou"] += 1
+            if r.probs["btts"]:
+                p_yes = r.probs["btts"].get("yes", 0.0)
+                if p_yes != 0.5:
+                    pred = "yes" if p_yes > 0.5 else "no"
+                    actual_b = actual_btts(r.home_goals, r.away_goals)
+                    cum_hits["btts"] += int(pred == actual_b)
+                    cum_n["btts"] += 1
+
+            per_phase_n[phase] = n_matches_processed
+            per_phase_cum[phase] = {
+                k: (cum_hits[k] / cum_n[k]) if cum_n[k] else 0.0 for k in ("1x2", "ou", "btts")
+            }
+
+        out: list[TimeseriesPoint] = []
+        last_n = 0
+        last_cum: dict[str, float] = {"1x2": 0.0, "ou": 0.0, "btts": 0.0}
+        for phase in PHASES:
+            if phase in per_phase_n:
+                last_n = per_phase_n[phase]
+                last_cum = per_phase_cum[phase]
+            out.append(TimeseriesPoint(phase=phase, n=last_n, cumulative=dict(last_cum)))
+        return out
+
+    def _serialize_matches(self, rows: list[_MatchAggregate]) -> list[MatchRow]:
+        out: list[MatchRow] = []
+        for r in sorted(rows, key=lambda a: a.kickoff_utc, reverse=True):
+            preds: dict[str, MatchPredictionDetail] = {}
+
+            if r.probs["1x2"]:
+                top, top_p = predicted_1x2_top(r.probs["1x2"])
+                actual_1 = actual_1x2(r.home_goals, r.away_goals)
+                preds["1x2"] = MatchPredictionDetail(
+                    predicted=top,
+                    predicted_prob=top_p,
+                    actual=actual_1,
+                    hit=top == actual_1,
+                    brier=brier_multiclass(probs=r.probs["1x2"], actual=actual_1),
+                )
+            if r.probs["over_under_2_5"]:
+                p_over = r.probs["over_under_2_5"].get("over", 0.0)
+                pred_ou = "over" if p_over > 0.5 else ("under" if p_over < 0.5 else "abstain")
+                actual_o = actual_ou(r.home_goals, r.away_goals)
+                preds["ou"] = MatchPredictionDetail(
+                    predicted=pred_ou,
+                    predicted_prob=p_over,
+                    actual=actual_o,
+                    hit=pred_ou == actual_o,
+                    brier=brier_binary(prob=p_over, outcome=1 if actual_o == "over" else 0),
+                )
+            if r.probs["btts"]:
+                p_yes = r.probs["btts"].get("yes", 0.0)
+                pred_b = "yes" if p_yes > 0.5 else ("no" if p_yes < 0.5 else "abstain")
+                actual_b = actual_btts(r.home_goals, r.away_goals)
+                preds["btts"] = MatchPredictionDetail(
+                    predicted=pred_b,
+                    predicted_prob=p_yes,
+                    actual=actual_b,
+                    hit=pred_b == actual_b,
+                    brier=brier_binary(prob=p_yes, outcome=1 if actual_b == "yes" else 0),
+                )
+
+            out.append(
+                MatchRow(
+                    match_id=r.match_id,
+                    kickoff_utc=r.kickoff_utc,
+                    home_team=r.home_team,
+                    away_team=r.away_team,
+                    home_goals=r.home_goals,
+                    away_goals=r.away_goals,
+                    phase=normalize_phase(r.stage),
+                    predictions=preds,
+                )
+            )
+        return out
