@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { BookOpen, Gem, Home, Settings, TrendingUp } from "lucide-react";
+import { BookOpen, Gem, Home, Settings, Target, TrendingUp } from "lucide-react";
 import { OPEN_API_KEY_DIALOG_EVENT } from "@/components/ApiKeyDialog";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,7 @@ const navItems = [
   { to: "/", label: "Jogos", icon: Home },
   { to: "/bets", label: "Value Bets", icon: Gem },
   { to: "/clv", label: "CLV", icon: TrendingUp },
+  { to: "/acertos", label: "Acertos", icon: Target },
   { to: "/metodologia", label: "Metodologia", icon: BookOpen },
 ];
 
