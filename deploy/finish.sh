@@ -90,13 +90,20 @@ curl -fsS -H "X-API-Key: ${ANALYTIS_API_KEY}" "https://$DOMAIN/v1/models" | head
 # ============================================================
 # Setup cron: TLS renewal + nightly backup
 # ============================================================
-log "Installing cron jobs (TLS renew, daily backup)..."
+log "Installing cron jobs (TLS renew, daily backup, daily re-score)..."
 sudo tee /etc/cron.d/analytis-renew >/dev/null <<EOF
 0 3 * * * root certbot renew --quiet --deploy-hook "docker compose -f /opt/analytis/deploy/docker-compose.prod.yml exec -T nginx nginx -s reload"
 EOF
 
 sudo tee /etc/cron.d/analytis-backup >/dev/null <<EOF
 30 4 * * * ubuntu /opt/analytis/deploy/backup/pg-backup.sh
+EOF
+
+# Daily 07:00 UTC = 04:00 BRT, off-peak. Re-ingests fixtures + re-scores upcoming
+# matches with ensemble-v1 (dc-v1-no-decay + xgb-1x2-v1, 50/50).
+sudo chmod +x /opt/analytis/deploy/cron/daily-rescore.sh
+sudo tee /etc/cron.d/analytis-rescore >/dev/null <<EOF
+0 7 * * * root /opt/analytis/deploy/cron/daily-rescore.sh
 EOF
 
 cat <<EOF
