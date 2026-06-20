@@ -175,3 +175,73 @@ export const api = {
   getMatchExplanation: (matchId: string) =>
     request<MatchExplanation>(`/matches/${matchId}/explain`),
 };
+
+// ----- Accuracy dashboard -----
+export type Phase = "group" | "round_of_16" | "quarterfinal" | "semifinal" | "final";
+
+export interface ModelRef {
+  id: string;
+  name: string;
+  family: string;
+}
+
+export interface ModelOption extends ModelRef {
+  n_predictions: number;
+}
+
+export interface MarketKpi {
+  hits: number;
+  n: number;
+  rate: number;
+  ci_low: number;
+  ci_high: number;
+  brier_avg: number;
+}
+
+export interface AccuracyKpis {
+  n_matches_evaluated: number;
+  markets: { "1x2": MarketKpi; ou: MarketKpi; btts: MarketKpi };
+  brier_overall: number;
+}
+
+export interface TimeseriesPoint {
+  phase: Phase;
+  n: number;
+  cumulative: { "1x2": number; ou: number; btts: number };
+}
+
+export interface MatchPredictionDetail {
+  predicted: string;
+  predicted_prob: number;
+  actual: string;
+  hit: boolean;
+  brier: number;
+}
+
+export interface MatchAccuracyRow {
+  match_id: string;
+  kickoff_utc: string;
+  home_team: string;
+  away_team: string;
+  home_goals: number;
+  away_goals: number;
+  phase: Phase;
+  predictions: {
+    "1x2"?: MatchPredictionDetail;
+    ou?: MatchPredictionDetail;
+    btts?: MatchPredictionDetail;
+  };
+}
+
+export interface AccuracySummary {
+  model: ModelRef;
+  available_models: ModelOption[];
+  kpis: AccuracyKpis;
+  timeseries: TimeseriesPoint[];
+  matches: MatchAccuracyRow[];
+}
+
+export function fetchAccuracySummary(model?: string): Promise<AccuracySummary> {
+  const qs = model ? `?model=${encodeURIComponent(model)}` : "";
+  return request<AccuracySummary>(`/accuracy/summary${qs}`);
+}
