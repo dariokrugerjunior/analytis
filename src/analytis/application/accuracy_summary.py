@@ -115,6 +115,52 @@ def wilson_ci(*, hits: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (low, high)
 
 
+def actual_1x2(home_goals: int, away_goals: int) -> str:
+    """Return actual 1x2 outcome from final scoreline."""
+    if home_goals > away_goals:
+        return "home"
+    if home_goals < away_goals:
+        return "away"
+    return "draw"
+
+
+def actual_ou(home_goals: int, away_goals: int) -> str:
+    """Return actual Over/Under outcome from total goals."""
+    return "over" if (home_goals + away_goals) > 2.5 else "under"
+
+
+def actual_btts(home_goals: int, away_goals: int) -> str:
+    """Return actual BTTS outcome: both teams scored or not."""
+    return "yes" if (home_goals >= 1 and away_goals >= 1) else "no"
+
+
+def predicted_1x2_top(probs: dict[str, float]) -> tuple[str, float]:
+    """Return (top_outcome, top_prob). On a probability tie, the outcome whose
+    name comes earlier alphabetically wins."""
+    # max with composite key: highest prob wins; on tie, smaller string wins
+    # (because we negate via second key — smallest string == "earliest alphabetical").
+    # We achieve "smallest string wins" within max() by providing a key that ranks
+    # earlier-alphabetical strings as LARGER. Easiest: invert via tuple of negative
+    # char codes for the full name.
+    return max(probs.items(), key=lambda kv: (kv[1], tuple(-ord(c) for c in kv[0])))
+
+
+def brier_binary(*, prob: float, outcome: int) -> float:
+    """Brier for a single binary prediction. outcome must be 0 or 1."""
+    return (prob - outcome) ** 2
+
+
+def brier_multiclass(*, probs: dict[str, float], actual: str) -> float:
+    """Brier multiclass over outcomes. actual is one of probs.keys()."""
+    if actual not in probs:
+        raise ValueError(f"actual {actual!r} not in probs keys {list(probs)}")
+    total = 0.0
+    for outcome, p in probs.items():
+        y = 1.0 if outcome == actual else 0.0
+        total += (p - y) ** 2
+    return total / len(probs)
+
+
 class AccuracySummaryUseCase:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._factory = session_factory

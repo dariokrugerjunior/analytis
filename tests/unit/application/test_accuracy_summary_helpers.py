@@ -3,7 +3,13 @@ import math
 import pytest
 
 from analytis.application.accuracy_summary import (
+    actual_1x2,
+    actual_btts,
+    actual_ou,
+    brier_binary,
+    brier_multiclass,
     normalize_phase,
+    predicted_1x2_top,
     wilson_ci,
 )
 
@@ -48,3 +54,63 @@ def test_wilson_ci_no_hits() -> None:
     low, high = wilson_ci(hits=0, n=5)
     assert low == pytest.approx(0.0, abs=1e-6)
     assert high < 0.5
+
+
+@pytest.mark.parametrize(
+    ("home", "away", "expected"),
+    [(2, 1, "home"), (1, 1, "draw"), (0, 3, "away"), (0, 0, "draw")],
+)
+def test_actual_1x2(home: int, away: int, expected: str) -> None:
+    assert actual_1x2(home, away) == expected
+
+
+@pytest.mark.parametrize(
+    ("home", "away", "expected"),
+    [(2, 1, "over"), (1, 1, "under"), (0, 2, "under"), (0, 3, "over")],
+)
+def test_actual_ou(home: int, away: int, expected: str) -> None:
+    assert actual_ou(home, away) == expected
+
+
+@pytest.mark.parametrize(
+    ("home", "away", "expected"),
+    [(2, 1, "yes"), (0, 1, "no"), (1, 0, "no"), (0, 0, "no")],
+)
+def test_actual_btts(home: int, away: int, expected: str) -> None:
+    assert actual_btts(home, away) == expected
+
+
+def test_predicted_1x2_top_picks_highest_prob() -> None:
+    probs = {"home": 0.55, "draw": 0.25, "away": 0.20}
+    assert predicted_1x2_top(probs) == ("home", 0.55)
+
+
+def test_predicted_1x2_top_breaks_tie_alphabetically() -> None:
+    # Deterministic tie-break: alphabetical earlier outcome wins on a tie.
+    # 'draw' (d) comes before 'home' (h), so draw wins.
+    probs = {"home": 0.40, "draw": 0.40, "away": 0.20}
+    assert predicted_1x2_top(probs) == ("draw", 0.40)
+
+
+def test_brier_binary_perfect_correct() -> None:
+    # prob=1.0, outcome=1 → brier=0
+    assert brier_binary(prob=1.0, outcome=1) == pytest.approx(0.0)
+
+
+def test_brier_binary_perfect_wrong() -> None:
+    # prob=1.0, outcome=0 → brier=1.0
+    assert brier_binary(prob=1.0, outcome=0) == pytest.approx(1.0)
+
+
+def test_brier_binary_coin_flip() -> None:
+    # prob=0.5 always gives 0.25
+    assert brier_binary(prob=0.5, outcome=1) == pytest.approx(0.25)
+    assert brier_binary(prob=0.5, outcome=0) == pytest.approx(0.25)
+
+
+def test_brier_multiclass_correct() -> None:
+    # probs sum to 1, actual="home" → one-hot [1,0,0]
+    # brier = ((p_home-1)^2 + p_draw^2 + p_away^2) / 3
+    probs = {"home": 0.6, "draw": 0.3, "away": 0.1}
+    expected = ((0.6 - 1.0) ** 2 + 0.3**2 + 0.1**2) / 3
+    assert brier_multiclass(probs=probs, actual="home") == pytest.approx(expected)
