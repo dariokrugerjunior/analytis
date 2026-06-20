@@ -1,0 +1,84 @@
+# Production stack: postgres + app (FastAPI + bundled frontend) + nginx (TLS).
+# Run with:
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+#
+# The build context is the repo root so the Dockerfile can COPY src/, frontend/, etc.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: analytis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: analytis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD missing — copy deploy/.env.prod.example → deploy/.env.prod and fill in}
+      POSTGRES_DB: analytis
+    # Tuning for low-memory host (E2.1.Micro = 1 GB RAM)
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=64MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=32MB"
+      - "-c"
+      - "max_connections=20"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    mem_limit: 350m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytis -d analytis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    # Image is loaded on the VM via `docker load` (deploy.sh) — no remote build.
+    image: analytis-app:latest
+    container_name: analytis-app
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    mem_limit: 400m
+    expose:
+      - "8000"
+    volumes:
+      # Persist trained model artifacts across container recreations
+      - models:/app/models
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: analytis-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN missing}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - app
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  certbot-webroot:
+  models:

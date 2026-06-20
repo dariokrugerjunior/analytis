@@ -1,0 +1,70 @@
+#cloud-config
+# Bootstraps the OCI Ampere A1 VM on first boot. After this completes:
+#   1. Code arrives via rsync (deploy/deploy.sh from the operator's machine)
+#   2. deploy/.env.prod arrives via scp
+#   3. ssh ... 'bash /opt/analytis/deploy/finish.sh'  → issues cert, brings stack up
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+  - rsync
+  - ufw
+  - fail2ban
+  - certbot
+  - curl
+  - iptables-persistent
+  - netfilter-persistent
+
+write_files:
+  - path: /etc/fail2ban/jail.d/sshd.local
+    content: |
+      [sshd]
+      enabled = true
+      port    = ssh
+      maxretry = 3
+      bantime  = 86400
+    permissions: '0644'
+
+runcmd:
+  # Docker access for the default ubuntu user
+  - usermod -aG docker ubuntu
+
+  # Application directory — owned by ubuntu so scp works without sudo
+  - mkdir -p /opt/analytis /opt/analytis/deploy/nginx /opt/analytis/backups
+  - chown -R ubuntu:ubuntu /opt/analytis
+
+  # Swap — E2.1.Micro has only 1 GB RAM. 1 GB swap doubles effective capacity.
+  - fallocate -l 1G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - sysctl -w vm.swappiness=10
+  - echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+
+  # UFW (host-level firewall)
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow OpenSSH
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # Oracle Ubuntu ships with a restrictive iptables INPUT chain (REJECT at line 5
+  # blocks everything below). Insert 80/443 BEFORE the REJECT (line 5).
+  - iptables -I INPUT 5 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+  - iptables -I INPUT 5 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+  - netfilter-persistent save
+
+  # Enable services
+  - systemctl enable --now docker
+  - systemctl enable --now fail2ban
+
+  # Marker file — finish.sh checks this before running
+  - touch /opt/analytis/.cloud-init-done
+
+final_message: "cloud-init complete. Next: rsync code, scp .env.prod, ssh+run finish.sh."
