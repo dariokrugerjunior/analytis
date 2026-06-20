@@ -62,6 +62,8 @@ export interface MatchPredictions {
   status: MatchStatus;
   kickoff_utc: string;
   predictions: Prediction[];
+  auto_scored?: boolean;
+  auto_score_model?: string | null;
 }
 
 export interface OddsQuote {

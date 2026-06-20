@@ -8,8 +8,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from analytis.api.auto_score import auto_score_if_missing
 from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
@@ -47,6 +48,33 @@ class MatchPredictionsResponse(BaseModel):
     status: str
     kickoff_utc: datetime
     predictions: list[PredictionResponse]
+    auto_scored: bool = False
+    auto_score_model: str | None = None
+
+
+async def _load_predictions(session: AsyncSession, match_id: UUID) -> list[PredictionResponse]:
+    stmt = (
+        select(PredictionORM, ModelVersionORM.name)
+        .join(
+            ModelVersionORM,
+            PredictionORM.model_version_id == ModelVersionORM.id,
+        )
+        .where(PredictionORM.match_id == match_id)
+        .order_by(PredictionORM.created_at.desc(), PredictionORM.market)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        PredictionResponse(
+            market=row[0].market,
+            outcome=row[0].outcome,
+            prob=row[0].prob,
+            ci_low=row[0].ci_low,
+            ci_high=row[0].ci_high,
+            model_version=row[1],
+            created_at=row[0].created_at,
+        )
+        for row in rows
+    ]
 
 
 @router.get(
@@ -58,40 +86,39 @@ async def get_match_predictions(
     match_id: UUID,
     settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> MatchPredictionsResponse:
-    async with _session(settings) as session:
-        match = await session.get(MatchORM, match_id)
-        if match is None:
-            raise HTTPException(status_code=404, detail="match not found")
+    engine = create_engine(settings)
+    factory: async_sessionmaker[AsyncSession] = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            match = await session.get(MatchORM, match_id)
+            if match is None:
+                raise HTTPException(status_code=404, detail="match not found")
 
-        stmt = (
-            select(PredictionORM, ModelVersionORM.name)
-            .join(
-                ModelVersionORM,
-                PredictionORM.model_version_id == ModelVersionORM.id,
-            )
-            .where(PredictionORM.match_id == match_id)
-            .order_by(PredictionORM.created_at.desc(), PredictionORM.market)
-        )
-        rows = (await session.execute(stmt)).all()
+            items = await _load_predictions(session, match_id)
+            match_status = match.status
+            home_goals = match.home_goals
+            away_goals = match.away_goals
+            kickoff_utc = match.kickoff_utc
 
-        items = [
-            PredictionResponse(
-                market=row[0].market,
-                outcome=row[0].outcome,
-                prob=row[0].prob,
-                ci_low=row[0].ci_low,
-                ci_high=row[0].ci_high,
-                model_version=row[1],
-                created_at=row[0].created_at,
-            )
-            for row in rows
-        ]
+        auto_scored = False
+        auto_score_model: str | None = None
+        if not items:
+            model = await auto_score_if_missing(factory, match_id)
+            if model is not None:
+                auto_scored = True
+                auto_score_model = model.name
+                async with factory() as session:
+                    items = await _load_predictions(session, match_id)
 
         return MatchPredictionsResponse(
-            match_id=match.id,
-            home_goals=match.home_goals,
-            away_goals=match.away_goals,
-            status=match.status,
-            kickoff_utc=match.kickoff_utc,
+            match_id=match_id,
+            home_goals=home_goals,
+            away_goals=away_goals,
+            status=match_status,
+            kickoff_utc=kickoff_utc,
             predictions=items,
+            auto_scored=auto_scored,
+            auto_score_model=auto_score_model,
         )
+    finally:
+        await engine.dispose()
