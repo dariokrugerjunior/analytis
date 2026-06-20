@@ -39,10 +39,26 @@ class MarketKpi(BaseModel):
     brier_avg: float
 
 
+class ScorelineKpi(BaseModel):
+    """Partial-credit accuracy over scorelines (only for Dixon-Coles models).
+
+    For each finished match: 1.0 if predicted scoreline == actual, 0.5 if
+    predicted outcome (home/draw/away) matches but scoreline doesn't, 0.0 if
+    even the outcome is wrong. `score_pct` is the average across all matches.
+    """
+
+    exact: int
+    partial: int
+    miss: int
+    n: int
+    score_pct: float
+
+
 class Kpis(BaseModel):
     n_matches_evaluated: int
     markets: dict[str, MarketKpi]  # keys: "1x2", "ou", "btts"
     brier_overall: float
+    scoreline: ScorelineKpi | None = None  # populated only for Dixon-Coles models
 
 
 class TimeseriesPoint(BaseModel):
@@ -182,6 +198,18 @@ def brier_multiclass(*, probs: dict[str, float], actual: str) -> float:
     return total / len(probs)
 
 
+def scoreline_partial_score(
+    pred_home: int, pred_away: int, actual_home: int, actual_away: int
+) -> float:
+    """Return 1.0 if exact scoreline matches, 0.5 if same outcome (home/draw/away)
+    but different scoreline, 0.0 if outcome is also wrong."""
+    if pred_home == actual_home and pred_away == actual_away:
+        return 1.0
+    pred_outcome = actual_1x2(pred_home, pred_away)
+    actual_outcome = actual_1x2(actual_home, actual_away)
+    return 0.5 if pred_outcome == actual_outcome else 0.0
+
+
 class AccuracySummaryUseCase:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._factory = session_factory
@@ -196,6 +224,11 @@ class AccuracySummaryUseCase:
             rows = await self._load_match_rows(session, model.id)
 
             kpis = self._compute_kpis(rows)
+            if model.family == "dixon-coles":
+                model_row = await session.get(ModelVersionORM, model.id)
+                if model_row is not None and model_row.artifact_path:
+                    kpis.scoreline = self._compute_scoreline_kpi(model_row, rows)
+
             timeseries = self._compute_timeseries(rows)
             matches = self._serialize_matches(rows)
 
@@ -206,6 +239,61 @@ class AccuracySummaryUseCase:
                 timeseries=timeseries,
                 matches=matches,
             )
+
+    def _compute_scoreline_kpi(
+        self, model_row: ModelVersionORM, rows: list[_MatchAggregate]
+    ) -> ScorelineKpi | None:
+        """Load DC params and compute most-likely scoreline per match, then
+        aggregate exact/partial/miss with weighted scoring (1.0/0.5/0.0)."""
+        from pathlib import Path
+
+        from analytis.modeling.dixon_coles import score_matrix
+        from analytis.modeling.persistence import load_params
+
+        try:
+            dc_params = load_params(Path(model_row.artifact_path or ""))
+        except (FileNotFoundError, OSError):
+            return None
+
+        exact = 0
+        partial = 0
+        miss = 0
+        for r in rows:
+            # We don't have team NAMES here directly, but home_team/away_team strings
+            # were resolved in _load_match_rows. Skip silently if either is not in
+            # the model (older training data may not include newer teams).
+            home_name = r.home_team
+            away_name = r.away_team
+            if home_name not in dc_params.attack or away_name not in dc_params.attack:
+                continue
+
+            ha = dc_params.home_advantage  # neutral-venue info not tracked here; OK approximation
+            lam_h = math.exp(dc_params.attack[home_name] - dc_params.defense[away_name] + ha)
+            lam_a = math.exp(dc_params.attack[away_name] - dc_params.defense[home_name])
+            matrix = score_matrix(lam_h, lam_a, dc_params.rho, max_goals=10)
+
+            # argmax over (i, j) to find most-likely scoreline
+            best_i, best_j, best_p = 0, 0, -1.0
+            for i in range(matrix.shape[0]):
+                for j in range(matrix.shape[1]):
+                    p = float(matrix[i, j])
+                    if p > best_p:
+                        best_p = p
+                        best_i, best_j = i, j
+
+            score = scoreline_partial_score(best_i, best_j, r.home_goals, r.away_goals)
+            if score == 1.0:
+                exact += 1
+            elif score == 0.5:
+                partial += 1
+            else:
+                miss += 1
+
+        n = exact + partial + miss
+        if n == 0:
+            return None
+        score_pct = (1.0 * exact + 0.5 * partial) / n
+        return ScorelineKpi(exact=exact, partial=partial, miss=miss, n=n, score_pct=score_pct)
 
     async def _list_available_models(self, session: AsyncSession) -> list[ModelOption]:
         stmt = (
