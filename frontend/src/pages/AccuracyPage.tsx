@@ -123,6 +123,21 @@ export default function AccuracyPage() {
         />
       </div>
 
+      {data.kpis.scoreline ? (
+        <KpiCard
+          label="Placar (com crédito parcial)"
+          value={fmtPct(data.kpis.scoreline.score_pct)}
+          subtext={`${data.kpis.scoreline.exact} exatos + ${data.kpis.scoreline.partial} parciais + ${data.kpis.scoreline.miss} erros (${data.kpis.scoreline.n} jogos) — 1.0 placar igual, 0.5 vencedor certo, 0 errou`}
+        />
+      ) : (
+        <KpiCard
+          label="Placar (com crédito parcial)"
+          value="—"
+          subtext="Só disponível para modelos Dixon-Coles"
+          colorClass="text-fg-muted"
+        />
+      )}
+
       <Card className="p-4">
         <h3 className="text-sm font-medium text-fg-muted mb-2">Acerto cumulativo por fase</h3>
         <AccuracyChart data={data.timeseries} />

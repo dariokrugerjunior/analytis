@@ -198,10 +198,19 @@ export interface MarketKpi {
   brier_avg: number;
 }
 
+export interface ScorelineKpi {
+  exact: number;
+  partial: number;
+  miss: number;
+  n: number;
+  score_pct: number;
+}
+
 export interface AccuracyKpis {
   n_matches_evaluated: number;
   markets: { "1x2": MarketKpi; ou: MarketKpi; btts: MarketKpi };
   brier_overall: number;
+  scoreline: ScorelineKpi | null;
 }
 
 export interface TimeseriesPoint {
