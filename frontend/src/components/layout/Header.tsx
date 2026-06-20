@@ -1,11 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { Gem, Home, Settings, TrendingUp } from "lucide-react";
+import { BookOpen, Gem, Home, Settings, TrendingUp } from "lucide-react";
+import { OPEN_API_KEY_DIALOG_EVENT } from "@/components/ApiKeyDialog";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", label: "Jogos", icon: Home },
   { to: "/bets", label: "Value Bets", icon: Gem },
   { to: "/clv", label: "CLV", icon: TrendingUp },
+  { to: "/metodologia", label: "Metodologia", icon: BookOpen },
 ];
 
 export function Header() {
@@ -33,7 +35,7 @@ export function Header() {
         ))}
         <button
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-fg-muted hover:text-fg-primary"
-          onClick={() => alert("Em breve")}
+          onClick={() => window.dispatchEvent(new Event(OPEN_API_KEY_DIALOG_EVENT))}
           aria-label="Configurações"
           type="button"
         >

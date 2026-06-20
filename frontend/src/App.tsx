@@ -6,6 +6,7 @@ import HomePage from "@/pages/HomePage";
 import MatchDetailPage from "@/pages/MatchDetailPage";
 import ValueBetsPage from "@/pages/ValueBetsPage";
 import ClvSummaryPage from "@/pages/ClvSummaryPage";
+import MethodologyPage from "@/pages/MethodologyPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import { queryClient } from "@/lib/query-client";
 
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="/matches/:matchId" element={<MatchDetailPage />} />
             <Route path="/bets" element={<ValueBetsPage />} />
             <Route path="/clv" element={<ClvSummaryPage />} />
+            <Route path="/metodologia" element={<MethodologyPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
