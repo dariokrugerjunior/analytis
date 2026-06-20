@@ -21,6 +21,11 @@ coverage.xml
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
+
+# Deploy artifacts
+deploy/.vm-ip
+deploy/backups/
 
 # Project artifacts
 models/
@@ -33,6 +38,12 @@ data/cache/
 Thumbs.db
 .idea/
 .vscode/
+
+# Debug screenshots and playwright artifacts
+/*.png
+/*.jpg
+/*.jpeg
+.playwright-mcp/
 
 # Logs
 *.log
