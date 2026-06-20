@@ -1,6 +1,7 @@
 """Shared pytest fixtures."""
 
 import asyncio
+import os
 import sys
 from collections.abc import AsyncIterator, Iterator
 
@@ -40,6 +41,8 @@ async def engine(postgres_container: PostgresContainer) -> AsyncIterator[AsyncEn
     url = postgres_container.get_connection_url().replace(
         "postgresql+psycopg2", "postgresql+psycopg"
     )
+    # Set environment so Settings reads the test database URL (for API tests)
+    os.environ["ANALYTIS_DATABASE_URL"] = url
     engine = create_async_engine(url, future=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
