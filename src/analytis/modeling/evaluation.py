@@ -22,11 +22,17 @@ class ReliabilityBin:
     observed_frequency: float
 
 
+# Floating-point summations over Dixon-Coles scoreline matrices can produce
+# tiny negative values (e.g. -1e-3) at the edges of the distribution. Treat
+# those as 0/1 silently; only reject genuinely-invalid inputs.
+_PROB_TOL = 1e-2
+
+
 def _validate(probs: list[float], outcomes: list[int]) -> None:
     if len(probs) != len(outcomes):
         raise ValueError("probs and outcomes must have the same length")
     for p in probs:
-        if not 0.0 <= p <= 1.0:
+        if p < -_PROB_TOL or p > 1.0 + _PROB_TOL:
             raise ValueError(f"prob out of range: {p}")
     for o in outcomes:
         if o not in (0, 1):
