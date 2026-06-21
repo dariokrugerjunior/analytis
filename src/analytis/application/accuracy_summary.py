@@ -110,6 +110,7 @@ class _MatchAggregate:
     away_goals: int
     home_team_id: UUID
     away_team_id: UUID
+    is_home_neutral: bool
     probs: dict[str, dict[str, float]]
     home_team: str = ""
     away_team: str = ""
@@ -275,7 +276,8 @@ class AccuracySummaryUseCase:
             if home_name not in dc_params.attack or away_name not in dc_params.attack:
                 continue
 
-            ha = dc_params.home_advantage  # neutral-venue info not tracked here; OK approximation
+            # Match the scoreline.py route's neutral-venue handling: HA=0 for neutral.
+            ha = 0.0 if r.is_home_neutral else dc_params.home_advantage
             lam_h = math.exp(dc_params.attack[home_name] - dc_params.defense[away_name] + ha)
             lam_a = math.exp(dc_params.attack[away_name] - dc_params.defense[home_name])
             matrix = score_matrix(lam_h, lam_a, dc_params.rho, max_goals=10)
@@ -344,6 +346,7 @@ class AccuracySummaryUseCase:
                 MatchORM.away_goals,
                 MatchORM.home_team_id,
                 MatchORM.away_team_id,
+                MatchORM.is_home_neutral,
                 PredictionORM.market,
                 PredictionORM.outcome,
                 PredictionORM.prob,
@@ -371,6 +374,7 @@ class AccuracySummaryUseCase:
                     away_goals=row.away_goals,
                     home_team_id=row.home_team_id,
                     away_team_id=row.away_team_id,
+                    is_home_neutral=row.is_home_neutral,
                     probs={"1x2": {}, "over_under_2_5": {}, "btts": {}},
                 ),
             )
