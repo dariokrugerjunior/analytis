@@ -19,6 +19,7 @@ from analytis.api.routes import (
     models,
     odds,
     predictions,
+    push,
     scoreline,
     value_bets,
 )
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(odds.router, prefix="/v1")
     app.include_router(value_bets.router, prefix="/v1")
     app.include_router(accuracy.router, prefix="/v1")
+    app.include_router(push.router, prefix="/v1")
 
     # Static frontend (after all /v1/* routes so they take priority).
     frontend_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
