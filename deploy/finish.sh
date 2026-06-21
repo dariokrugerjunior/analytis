@@ -106,6 +106,11 @@ sudo tee /etc/cron.d/analytis-rescore >/dev/null <<EOF
 0 7 * * * root /opt/analytis/deploy/cron/daily-rescore.sh
 EOF
 
+sudo chmod +x /opt/analytis/deploy/cron/push-dispatcher.sh
+sudo tee /etc/cron.d/analytis-push >/dev/null <<EOF
+* * * * * root /opt/analytis/deploy/cron/push-dispatcher.sh
+EOF
+
 cat <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
