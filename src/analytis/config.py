@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     auto_ingest_window_before_kickoff_minutes: int = 30
     auto_ingest_window_after_kickoff_minutes: int = 180
 
+    vapid_private_key: SecretStr | None = None
+    vapid_public_key: str | None = None
+    vapid_subject: str = "mailto:admin@example.com"
+
 
 def get_settings() -> Settings:
     """Factory for DI — keeps `Settings()` call in one place."""
