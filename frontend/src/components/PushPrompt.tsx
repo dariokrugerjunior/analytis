@@ -33,8 +33,10 @@ export function PushPrompt() {
     setBusy(true);
     try {
       await enablePush();
-    } catch {
-      // markAsked already invoked inside push.ts when relevant; swallow
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // eslint-disable-next-line no-alert
+      alert(`Erro ao ativar notificações: ${msg}`);
     } finally {
       setBusy(false);
       setOpen(false);

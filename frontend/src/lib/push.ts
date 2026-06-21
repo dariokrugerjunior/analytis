@@ -52,7 +52,9 @@ export async function enablePush(): Promise<void> {
     throw new Error("permission denied");
   }
 
-  const registration = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.register("/sw.js");
+  // Wait for SW to be fully activated — iOS requires this before pushManager.subscribe
+  const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(public_key) as BufferSource,
