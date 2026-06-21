@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
 import { ApiKeyDialog } from "@/components/ApiKeyDialog";
+import { PushPrompt } from "@/components/PushPrompt";
 import HomePage from "@/pages/HomePage";
 import MatchDetailPage from "@/pages/MatchDetailPage";
 import ValueBetsPage from "@/pages/ValueBetsPage";
@@ -16,6 +17,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ApiKeyDialog />
+        <PushPrompt />
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
