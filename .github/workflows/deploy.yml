@@ -83,10 +83,21 @@ jobs:
         env:
           ENV_PROD: ${{ secrets.ENV_PROD }}
         run: |
+          set -eu
           mkdir -p deploy
-          printf '%s\n' "$ENV_PROD" > deploy/.env.prod
-          # Sanity: at least one expected key present (no values logged)
-          grep -q '^ANALYTIS_' deploy/.env.prod || { echo "ENV_PROD secret seems malformed"; exit 1; }
+          # Strip CRLF (Windows clip pastes \r\n; bash source on the VM
+          # then sets DOMAIN="value\r" which leaks into URLs / TLS SNI
+          # and breaks finish.sh's `dig` and `certbot -d` calls).
+          printf '%s\n' "$ENV_PROD" | tr -d '\r' > deploy/.env.prod
+          # Sanity: log keys present (no values) so we can diagnose
+          # truncated / malformed secrets on the next run.
+          echo "Keys present in deploy/.env.prod:"
+          grep -oE '^[A-Z_][A-Z0-9_]*=' deploy/.env.prod | sort -u | sed 's/^/  /' || true
+          # Required by finish.sh — fail fast with a clear message.
+          for k in DOMAIN ACME_EMAIL POSTGRES_PASSWORD ANALYTIS_API_KEY; do
+            grep -qE "^${k}=.+" deploy/.env.prod || \
+              { echo "::error::ENV_PROD secret is missing or empty for required key: $k"; exit 1; }
+          done
 
       - name: Ensure remote directory layout
         run: ssh vm "mkdir -p /opt/analytis/deploy/nginx /opt/analytis/deploy/backup /opt/analytis/migrations"
