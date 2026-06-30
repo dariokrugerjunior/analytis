@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Bell, BookOpen, Gem, Home, Settings, Target, TrendingUp } from "lucide-react";
+import { Bell, BookOpen, Home, Settings, Target } from "lucide-react";
 import { OPEN_API_KEY_DIALOG_EVENT } from "@/components/ApiKeyDialog";
 import { enablePush } from "@/lib/push";
 import { cn } from "@/lib/utils";
@@ -16,8 +16,6 @@ async function handlePushClick() {
 
 const navItems = [
   { to: "/", label: "Jogos", icon: Home },
-  { to: "/bets", label: "Value Bets", icon: Gem },
-  { to: "/clv", label: "CLV", icon: TrendingUp },
   { to: "/acertos", label: "Acertos", icon: Target },
   { to: "/metodologia", label: "Metodologia", icon: BookOpen },
 ];

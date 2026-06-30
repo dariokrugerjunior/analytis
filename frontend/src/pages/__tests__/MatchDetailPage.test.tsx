@@ -8,21 +8,9 @@ vi.mock("@/hooks/useMatchPredictions", () => ({
   useMatchPredictions: vi.fn(),
 }));
 
-vi.mock("@/hooks/useMatchOdds", () => ({
-  useMatchOdds: vi.fn(),
-}));
-
-vi.mock("@/hooks/useMatchValueBets", () => ({
-  useMatchValueBets: vi.fn(),
-}));
-
 import { useMatchPredictions } from "@/hooks/useMatchPredictions";
-import { useMatchOdds } from "@/hooks/useMatchOdds";
-import { useMatchValueBets } from "@/hooks/useMatchValueBets";
 
 const mockedPredictions = vi.mocked(useMatchPredictions);
-const mockedOdds = vi.mocked(useMatchOdds);
-const mockedValueBets = vi.mocked(useMatchValueBets);
 
 function renderPage(matchId = "m1") {
   const Wrapper = createWrapper();
@@ -39,34 +27,30 @@ function renderPage(matchId = "m1") {
 
 beforeEach(() => {
   mockedPredictions.mockReset();
-  mockedOdds.mockReset();
-  mockedValueBets.mockReset();
 });
 
 describe("MatchDetailPage", () => {
-  it("renders tab list and loading state for predictions", () => {
+  it("renders the back link and predictions UI", () => {
     mockedPredictions.mockReturnValue({
       data: undefined,
       isLoading: true,
       isError: false,
     } as unknown as ReturnType<typeof useMatchPredictions>);
-    mockedOdds.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    } as unknown as ReturnType<typeof useMatchOdds>);
-    mockedValueBets.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-    } as unknown as ReturnType<typeof useMatchValueBets>);
 
     renderPage();
     expect(screen.getByText(/voltar/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: /previsões/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /odds/i })).toBeInTheDocument();
+  });
+
+  it("does not render Odds or Bets tabs (hidden)", () => {
+    mockedPredictions.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useMatchPredictions>);
+
+    renderPage();
+    expect(screen.queryByRole("tab", { name: /odds/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /bets/i })).not.toBeInTheDocument();
   });
 
   it("renders empty predictions message when no predictions", () => {
@@ -82,16 +66,6 @@ describe("MatchDetailPage", () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useMatchPredictions>);
-    mockedOdds.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useMatchOdds>);
-    mockedValueBets.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useMatchValueBets>);
 
     renderPage();
     expect(

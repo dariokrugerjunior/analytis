@@ -108,7 +108,6 @@ export default function HomePage() {
               key={m.id}
               match={m}
               {...(s?.probs ? { probs: s.probs } : {})}
-              valueBetsCount={s?.valueBetsCount ?? 0}
             />
           );
         })}

@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Gem } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { MarketBars } from "./MarketBars";
@@ -8,7 +7,6 @@ import type { Match } from "@/lib/api";
 interface Props {
   match: Match;
   probs?: { home: number; draw: number; away: number };
-  valueBetsCount?: number;
 }
 
 function formatTime(iso: string) {
@@ -26,7 +24,7 @@ function statusBadge(status: Match["status"]) {
   return null;
 }
 
-export function MatchCard({ match, probs, valueBetsCount = 0 }: Props) {
+export function MatchCard({ match, probs }: Props) {
   const isFinished = match.status === "finished";
   return (
     <Link to={`/matches/${match.id}`} className="block group">
@@ -50,14 +48,6 @@ export function MatchCard({ match, probs, valueBetsCount = 0 }: Props) {
         {probs && (
           <div className="px-4 pb-3">
             <MarketBars {...probs} />
-          </div>
-        )}
-        {valueBetsCount > 0 && (
-          <div className="px-4 pb-3">
-            <Badge variant="edge" className="inline-flex items-center gap-1">
-              <Gem className="h-3 w-3" />
-              {valueBetsCount} value bet{valueBetsCount > 1 ? "s" : ""}
-            </Badge>
           </div>
         )}
       </Card>
