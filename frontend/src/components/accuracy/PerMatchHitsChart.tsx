@@ -40,6 +40,7 @@ interface ChartRow {
   label: string;
   hits: number;
   total: number;
+  pct: number;
   home: string;
   away: string;
   score: string;
@@ -66,10 +67,12 @@ export function PerMatchHitsChart({ rows }: Props) {
         r.scoreline_predicted_home !== null && r.scoreline_predicted_away !== null
           ? `${r.scoreline_predicted_home}-${r.scoreline_predicted_away}`
           : null;
+      const pct = total === 0 ? 0 : Math.round((hits / total) * 100);
       return {
         label: shortLabel(r.home_team, r.away_team),
         hits,
         total,
+        pct,
         home: r.home_team,
         away: r.away_team,
         score: `${r.home_goals}-${r.away_goals}`,
@@ -96,11 +99,11 @@ export function PerMatchHitsChart({ rows }: Props) {
           height={56}
         />
         <YAxis
-          domain={[0, 3]}
-          ticks={[0, 1, 2, 3]}
+          domain={[0, 100]}
+          ticks={[0, 50, 100]}
           stroke="rgba(255,255,255,0.5)"
           fontSize={11}
-          allowDecimals={false}
+          tickFormatter={(v) => `${v}%`}
         />
         <Tooltip
           cursor={{ fill: "rgba(255,255,255,0.04)" }}
@@ -122,7 +125,7 @@ export function PerMatchHitsChart({ rows }: Props) {
                   {p.home} {p.score} {p.away}
                 </div>
                 <div className="text-fg-muted mt-1">
-                  {p.hits}/{p.total} mercados
+                  {p.hits}/{p.total} mercados ({p.pct}%)
                 </div>
                 <div className="mt-2 space-y-1">
                   {p.details.map((d) => (
@@ -142,7 +145,7 @@ export function PerMatchHitsChart({ rows }: Props) {
             );
           }}
         />
-        <Bar dataKey="hits" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
           {data.map((d, i) => (
             <Cell key={i} fill={barColor(d.hits, d.total)} />
           ))}

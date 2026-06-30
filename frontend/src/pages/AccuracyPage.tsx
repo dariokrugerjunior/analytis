@@ -117,8 +117,9 @@ export default function AccuracyPage() {
       <Card className="p-4">
         <h3 className="text-sm font-medium text-fg-muted mb-1">Mercados acertados por jogo</h3>
         <p className="text-xs text-fg-muted mb-3">
-          Barra = quantos mercados (de 3) o modelo acertou. Verde = 3/3, amarelo = 2/3,
-          laranja = 1/3, vermelho = 0/3.
+          Barra = % dos mercados disponíveis que o modelo acertou nesse jogo (alguns jogos
+          têm 2 mercados, outros 3). Verde = 100%, amarelo = 50–99%, laranja = até 50%,
+          vermelho = 0%.
         </p>
         <PerMatchHitsChart rows={data.matches} />
       </Card>
