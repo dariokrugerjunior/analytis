@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/accuracy/KpiCard";
 import { MatchAccuracyTable } from "@/components/accuracy/MatchAccuracyTable";
-import { ModelSelector } from "@/components/accuracy/ModelSelector";
 import { PerMatchHitsChart } from "@/components/accuracy/PerMatchHitsChart";
 import { useAccuracySummary } from "@/hooks/useAccuracySummary";
+import { CANONICAL_MODEL } from "@/lib/models";
 
 function fmtPct(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`;
@@ -23,8 +22,7 @@ function brierColor(brier: number): string {
 }
 
 export default function AccuracyPage() {
-  const [model, setModel] = useState<string | undefined>(undefined);
-  const { data, isLoading, isError, error, refetch } = useAccuracySummary(model);
+  const { data, isLoading, isError, error, refetch } = useAccuracySummary(CANONICAL_MODEL);
 
   if (isLoading) {
     return (
@@ -67,11 +65,6 @@ export default function AccuracyPage() {
     return (
       <div className="space-y-4 max-w-3xl">
         <h2 className="text-2xl font-semibold">Acertos</h2>
-        <ModelSelector
-          models={data.available_models}
-          selected={data.model.name}
-          onChange={setModel}
-        />
         <Card className="p-6 text-center">
           <p className="text-sm text-fg-muted">
             Nenhum jogo com resultado disponível pra esse modelo ainda.
@@ -88,22 +81,12 @@ export default function AccuracyPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <header className="space-y-3">
+      <header className="space-y-2">
         <h2 className="text-2xl font-semibold">Acertos</h2>
-        <div className="flex items-center gap-3">
-          <ModelSelector
-            models={data.available_models}
-            selected={data.model.name}
-            onChange={setModel}
-          />
-          <span className="text-sm text-fg-muted">
-            {data.kpis.n_matches_evaluated} jogos avaliados
-          </span>
-        </div>
         <p className="text-sm text-fg-muted">
           <span className="text-fg-primary font-medium">{data.model.name}</span> acertou{" "}
           <span className="text-fg-primary font-medium">{fmtPct(overallPct)}</span> dos
-          mercados ({totalHits}/{totalN}).
+          mercados ({totalHits}/{totalN}) em {data.kpis.n_matches_evaluated} jogos.
         </p>
       </header>
 

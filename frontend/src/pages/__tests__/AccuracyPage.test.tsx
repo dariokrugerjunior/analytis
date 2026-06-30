@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { createWrapper } from "@/test/test-utils";
@@ -212,7 +212,7 @@ describe("AccuracyPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("changing ModelSelector triggers a new fetch with the selected model name", async () => {
+  it("always requests the canonical model and does not render a model selector", () => {
     mockHook.mockReturnValue({
       isLoading: false,
       isError: false,
@@ -220,11 +220,8 @@ describe("AccuracyPage", () => {
     } as unknown as ReturnType<typeof useAccuracySummary>);
 
     renderPage();
-    const select = screen.getByRole("combobox");
-    await userEvent.selectOptions(select, "xgb-1x2-v1");
-    await waitFor(() => {
-      expect(mockHook).toHaveBeenLastCalledWith("xgb-1x2-v1");
-    });
+    expect(mockHook).toHaveBeenLastCalledWith("ensemble-v1");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("clicking a match card navigates to /matches/:id", async () => {

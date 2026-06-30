@@ -58,7 +58,7 @@ describe("useMatchCardSummaries", () => {
               prob: 0.5,
               ci_low: 0.4,
               ci_high: 0.6,
-              model_version: "v1",
+              model_version: "ensemble-v1",
               created_at: "2025-01-01T00:00:00Z",
             },
             {
@@ -67,7 +67,7 @@ describe("useMatchCardSummaries", () => {
               prob: 0.3,
               ci_low: 0.2,
               ci_high: 0.4,
-              model_version: "v1",
+              model_version: "ensemble-v1",
               created_at: "2025-01-01T00:00:00Z",
             },
             {
@@ -76,7 +76,7 @@ describe("useMatchCardSummaries", () => {
               prob: 0.2,
               ci_low: 0.1,
               ci_high: 0.3,
-              model_version: "v1",
+              model_version: "ensemble-v1",
               created_at: "2025-01-01T00:00:00Z",
             },
           ],

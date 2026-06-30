@@ -6,6 +6,7 @@ import {
   type MatchPredictions,
   type ValueBetsList,
 } from "@/lib/api";
+import { CANONICAL_MODEL } from "@/lib/models";
 
 export interface MatchSummary {
   probs?: { home: number; draw: number; away: number };
@@ -36,7 +37,7 @@ export function useMatchCardSummaries(matches: Match[]) {
         | { data?: ValueBetsList }
         | undefined;
       const oneXTwo = predictionsRes?.data?.predictions.filter(
-        (p) => p.market === "1x2",
+        (p) => p.market === "1x2" && p.model_version === CANONICAL_MODEL,
       );
       const probs =
         oneXTwo && oneXTwo.length >= 3
