@@ -55,11 +55,19 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_IP: ${{ secrets.VM_IP }}
         run: |
+          set -eu
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          # Write the secret key. printf preserves multiline contents.
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null
+          # Sanity check: confirm key parses without printing it.
+          ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null \
+            || { echo "::error::SSH_PRIVATE_KEY secret is not a valid OpenSSH private key"; exit 1; }
+          # Scan host keys (tolerant — StrictHostKeyChecking=accept-new is the fallback).
+          ssh-keyscan -T 10 -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null || \
+            echo "ssh-keyscan did not return host keys for $VM_IP (will accept on first connect)"
+          # SSH config alias 'vm' so subsequent scp/ssh stay short.
           cat >> ~/.ssh/config <<EOF
           Host vm
             HostName $VM_IP
@@ -69,6 +77,7 @@ jobs:
             ServerAliveInterval 20
             ServerAliveCountMax 3
           EOF
+          chmod 600 ~/.ssh/config
 
       - name: Write .env.prod from secret
         env:
