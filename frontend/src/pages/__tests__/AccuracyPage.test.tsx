@@ -13,15 +13,14 @@ vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  LineChart: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Bar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Cell: () => null,
   CartesianGrid: () => null,
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
   Legend: () => null,
-  Line: () => null,
 }));
 
 import { useAccuracySummary } from "@/hooks/useAccuracySummary";
@@ -65,6 +64,7 @@ function sampleData(overrides: Partial<AccuracySummary> = {}): AccuracySummary {
         },
       },
       brier_overall: 0.232,
+      scoreline: null,
     },
     timeseries: [
       {
@@ -90,7 +90,24 @@ function sampleData(overrides: Partial<AccuracySummary> = {}): AccuracySummary {
             hit: true,
             brier: 0.21,
           },
+          ou: {
+            predicted: "over",
+            predicted_prob: 0.62,
+            actual: "over",
+            hit: true,
+            brier: 0.14,
+          },
+          btts: {
+            predicted: "yes",
+            predicted_prob: 0.71,
+            actual: "yes",
+            hit: true,
+            brier: 0.08,
+          },
         },
+        scoreline_credit: null,
+        scoreline_predicted_home: null,
+        scoreline_predicted_away: null,
       },
     ],
     ...overrides,
@@ -132,10 +149,35 @@ describe("AccuracyPage", () => {
     } as unknown as ReturnType<typeof useAccuracySummary>);
 
     renderPage();
-    expect(screen.getByText("58.3%")).toBeInTheDocument();
+    // 58.3% appears for both the 1X2 KPI and the overall summary (21/36 = 58.3%);
+    // assert it's rendered at least once rather than uniquely.
+    expect(screen.getAllByText("58.3%").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("66.7%")).toBeInTheDocument();
     expect(screen.getByText("50.0%")).toBeInTheDocument();
     expect(screen.getByText("0.232")).toBeInTheDocument();
+  });
+
+  it("renders overall accuracy summary line", () => {
+    mockHook.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: sampleData(),
+    } as unknown as ReturnType<typeof useAccuracySummary>);
+
+    renderPage();
+    // 21 hits / 36 total = 58.3% — the "21/36" fragment is unique to the summary line.
+    expect(screen.getByText(/21\/36/)).toBeInTheDocument();
+  });
+
+  it("does not render scoreline KPI card (unified single paradigm)", () => {
+    mockHook.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: sampleData(),
+    } as unknown as ReturnType<typeof useAccuracySummary>);
+
+    renderPage();
+    expect(screen.queryByText(/Placar \(com crédito parcial\)/i)).not.toBeInTheDocument();
   });
 
   it.each([
@@ -196,7 +238,16 @@ describe("AccuracyPage", () => {
     const card = screen.getByText(/Brazil vs Argentina/).closest(".cursor-pointer");
     expect(card).not.toBeNull();
     await userEvent.click(card!);
-    // Navigation is handled internally by react-router useNavigate; the test
-    // verifies the card is clickable and the cursor-pointer class is present.
+  });
+
+  it("renders 3/3 score badge when all markets hit", () => {
+    mockHook.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: sampleData(),
+    } as unknown as ReturnType<typeof useAccuracySummary>);
+
+    renderPage();
+    expect(screen.getByText("3/3")).toBeInTheDocument();
   });
 });

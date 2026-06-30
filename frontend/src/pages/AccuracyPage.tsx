@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AccuracyChart } from "@/components/accuracy/AccuracyChart";
 import { KpiCard } from "@/components/accuracy/KpiCard";
 import { MatchAccuracyTable } from "@/components/accuracy/MatchAccuracyTable";
-import { MatchScorelineChart } from "@/components/accuracy/MatchScorelineChart";
 import { ModelSelector } from "@/components/accuracy/ModelSelector";
+import { PerMatchHitsChart } from "@/components/accuracy/PerMatchHitsChart";
 import { useAccuracySummary } from "@/hooks/useAccuracySummary";
 
 function fmtPct(rate: number): string {
@@ -83,10 +82,13 @@ export default function AccuracyPage() {
   }
 
   const m = data.kpis.markets;
+  const totalHits = m["1x2"].hits + m.ou.hits + m.btts.hits;
+  const totalN = m["1x2"].n + m.ou.n + m.btts.n;
+  const overallPct = totalN > 0 ? totalHits / totalN : 0;
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <header className="space-y-2">
+      <header className="space-y-3">
         <h2 className="text-2xl font-semibold">Acertos</h2>
         <div className="flex items-center gap-3">
           <ModelSelector
@@ -98,6 +100,11 @@ export default function AccuracyPage() {
             {data.kpis.n_matches_evaluated} jogos avaliados
           </span>
         </div>
+        <p className="text-sm text-fg-muted">
+          <span className="text-fg-primary font-medium">{data.model.name}</span> acertou{" "}
+          <span className="text-fg-primary font-medium">{fmtPct(overallPct)}</span> dos
+          mercados ({totalHits}/{totalN}).
+        </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3">
@@ -124,38 +131,14 @@ export default function AccuracyPage() {
         />
       </div>
 
-      {data.kpis.scoreline ? (
-        <KpiCard
-          label="Placar (com crédito parcial)"
-          value={fmtPct(data.kpis.scoreline.score_pct)}
-          subtext={`${data.kpis.scoreline.exact} exatos + ${data.kpis.scoreline.partial} parciais + ${data.kpis.scoreline.miss} erros (${data.kpis.scoreline.n} jogos) — 1.0 placar igual, 0.5 vencedor certo, 0 errou`}
-        />
-      ) : (
-        <KpiCard
-          label="Placar (com crédito parcial)"
-          value="—"
-          subtext="Só disponível para modelos Dixon-Coles"
-          colorClass="text-fg-muted"
-        />
-      )}
-
-      {data.kpis.scoreline ? (
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-fg-muted mb-2">
-            Acerto de placar por jogo
-          </h3>
-          <p className="text-xs text-fg-muted mb-3">
-            Verde 100% = placar exato. Amarelo 50% = vencedor certo, placar diferente.
-            Vermelho 0% = vencedor errado.
-          </p>
-          <MatchScorelineChart rows={data.matches} />
-        </Card>
-      ) : (
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-fg-muted mb-2">Acerto cumulativo por fase</h3>
-          <AccuracyChart data={data.timeseries} />
-        </Card>
-      )}
+      <Card className="p-4">
+        <h3 className="text-sm font-medium text-fg-muted mb-1">Mercados acertados por jogo</h3>
+        <p className="text-xs text-fg-muted mb-3">
+          Barra = quantos mercados (de 3) o modelo acertou. Verde = 3/3, amarelo = 2/3,
+          laranja = 1/3, vermelho = 0/3.
+        </p>
+        <PerMatchHitsChart rows={data.matches} />
+      </Card>
 
       <section>
         <h3 className="text-base font-semibold mb-2">Jogos</h3>
