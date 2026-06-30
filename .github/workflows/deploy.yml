@@ -1,0 +1,111 @@
+name: deploy
+
+# Deploys to the OCI VM at $VM_IP.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   - VM_IP            : public IP of the OCI VM (e.g. 163.176.194.231)
+#   - SSH_PRIVATE_KEY  : private SSH key that can `ssh ubuntu@$VM_IP` (full file, including BEGIN/END lines)
+#   - ENV_PROD         : full content of deploy/.env.prod (VAPID keys, DB password, API key, etc.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'frontend/**'
+      - 'migrations/**'
+      - 'alembic.ini'
+      - 'deploy/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (cached via GHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile.app
+          tags: analytis-app:latest
+          outputs: type=docker,dest=/tmp/analytis-app.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Compress image
+        run: |
+          gzip -1 /tmp/analytis-app.tar
+          ls -lh /tmp/analytis-app.tar.gz
+
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_IP: ${{ secrets.VM_IP }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null
+          cat >> ~/.ssh/config <<EOF
+          Host vm
+            HostName $VM_IP
+            User ubuntu
+            IdentityFile ~/.ssh/id_deploy
+            StrictHostKeyChecking accept-new
+            ServerAliveInterval 20
+            ServerAliveCountMax 3
+          EOF
+
+      - name: Write .env.prod from secret
+        env:
+          ENV_PROD: ${{ secrets.ENV_PROD }}
+        run: |
+          mkdir -p deploy
+          printf '%s\n' "$ENV_PROD" > deploy/.env.prod
+          # Sanity: at least one expected key present (no values logged)
+          grep -q '^ANALYTIS_' deploy/.env.prod || { echo "ENV_PROD secret seems malformed"; exit 1; }
+
+      - name: Ensure remote directory layout
+        run: ssh vm "mkdir -p /opt/analytis/deploy/nginx /opt/analytis/deploy/backup /opt/analytis/migrations"
+
+      - name: Upload image + configs + migrations
+        run: |
+          scp -q /tmp/analytis-app.tar.gz vm:/opt/analytis/deploy/
+          scp -q deploy/docker-compose.prod.yml vm:/opt/analytis/deploy/
+          scp -q deploy/nginx/default.conf.template vm:/opt/analytis/deploy/nginx/
+          scp -q deploy/finish.sh vm:/opt/analytis/deploy/
+          scp -q deploy/backup/pg-backup.sh vm:/opt/analytis/deploy/backup/
+          scp -q deploy/.env.prod vm:/opt/analytis/deploy/.env.prod
+          scp -q alembic.ini vm:/opt/analytis/
+          scp -rq migrations/. vm:/opt/analytis/migrations/
+
+      - name: Run finish.sh on VM
+        run: ssh -t vm "chmod +x /opt/analytis/deploy/*.sh /opt/analytis/deploy/backup/*.sh && bash /opt/analytis/deploy/finish.sh"
+
+      - name: Smoke test
+        env:
+          VM_IP: ${{ secrets.VM_IP }}
+        run: |
+          # Wait up to 60s for app to come back up after compose up
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://analytis.zyntra.company/" || true)
+            echo "[$i] HTTP $code"
+            [[ "$code" == "200" ]] && exit 0
+            sleep 5
+          done
+          echo "Site did not return 200 after 60s"
+          exit 1
