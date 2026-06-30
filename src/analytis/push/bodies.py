@@ -23,7 +23,7 @@ def build_pre_payload(match: dict[str, Any], probs_1x2: dict[str, float]) -> dic
     away = match["away_team"]
 
     def pct(k: str) -> str:
-        return f"{int(round(probs_1x2[k] * 100))}%"
+        return f"{round(probs_1x2[k] * 100)}%"
 
     body = f"{home} {pct('home')} · empate {pct('draw')} · {away} {pct('away')}"
     return {
@@ -46,10 +46,7 @@ def build_post_payload(match: dict[str, Any], probs_1x2: dict[str, float]) -> di
     top_outcome, top_prob = _top_1x2(probs_1x2)
 
     marker = "✓ acerto 1X2" if top_outcome == actual else "✗ errou 1X2"
-    body = (
-        f"Sua previsão: {_OUTCOME_LABEL[top_outcome]} "
-        f"({int(round(top_prob * 100))}%) — {marker}"
-    )
+    body = f"Sua previsão: {_OUTCOME_LABEL[top_outcome]} " f"({round(top_prob * 100)}%) — {marker}"
     return {
         "title": f"{home} {hg}-{ag} {away}",
         "body": body,

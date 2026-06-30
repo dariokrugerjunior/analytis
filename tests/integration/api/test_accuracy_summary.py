@@ -158,7 +158,7 @@ async def _seed_full_match_with_prediction(
     prob_btts_yes: float,
 ) -> MatchORM:
     """Helper: seed 1 finished match + full prediction set for 1 model."""
-    comp, season = await _seed_competition(session)
+    _, season = await _seed_competition(session)
     home_name = f"H-{kickoff.day}-{kickoff.hour}"
     away_name = f"A-{kickoff.day}-{kickoff.hour}"
     teams = await _seed_teams(session, [home_name, away_name])
@@ -235,7 +235,7 @@ async def test_returns_404_when_model_not_found(
 ) -> None:
     """A ?model=ghost query for a non-existent model returns 404."""
     async with session_factory() as session:
-        comp, season = await _seed_competition(session)
+        _, season = await _seed_competition(session)
         teams = await _seed_teams(session, ["Brazil", "Argentina"])
         match = await _seed_match(
             session,
@@ -277,7 +277,7 @@ async def test_returns_only_finished_matches(
 ) -> None:
     """Only finished matches are counted; scheduled matches are excluded."""
     async with session_factory() as session:
-        comp, season = await _seed_competition(session)
+        _, season = await _seed_competition(session)
         teams = await _seed_teams(session, ["Brazil", "Argentina"])
         finished_match = await _seed_match(
             session,
