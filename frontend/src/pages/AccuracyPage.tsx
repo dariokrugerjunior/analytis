@@ -1,10 +1,13 @@
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/accuracy/KpiCard";
 import { MatchAccuracyTable } from "@/components/accuracy/MatchAccuracyTable";
 import { PerMatchHitsChart } from "@/components/accuracy/PerMatchHitsChart";
 import { useAccuracySummary } from "@/hooks/useAccuracySummary";
+import type { MatchAccuracyRow } from "@/lib/api";
 import { CANONICAL_MODEL } from "@/lib/models";
+import { cn } from "@/lib/utils";
 
 function fmtPct(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`;
@@ -21,8 +24,38 @@ function brierColor(brier: number): string {
   return "text-yellow-400";
 }
 
+type Filter = "all" | "perfect" | "partial" | "zero";
+
+const MARKETS = ["1x2", "ou", "btts"] as const;
+
+function bucket(row: MatchAccuracyRow): Exclude<Filter, "all"> | null {
+  const predicted = MARKETS.filter((m) => row.predictions[m]);
+  if (predicted.length === 0) return null;
+  const hits = predicted.filter((m) => row.predictions[m]!.hit).length;
+  if (hits === predicted.length) return "perfect";
+  if (hits === 0) return "zero";
+  return "partial";
+}
+
 export default function AccuracyPage() {
   const { data, isLoading, isError, error, refetch } = useAccuracySummary(CANONICAL_MODEL);
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    if (filter === "all") return data.matches;
+    return data.matches.filter((r) => bucket(r) === filter);
+  }, [data, filter]);
+
+  const counts = useMemo(() => {
+    const c = { perfect: 0, partial: 0, zero: 0 };
+    if (!data) return c;
+    for (const r of data.matches) {
+      const b = bucket(r);
+      if (b) c[b]++;
+    }
+    return c;
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -78,6 +111,14 @@ export default function AccuracyPage() {
   const totalHits = m["1x2"].hits + m.ou.hits + m.btts.hits;
   const totalN = m["1x2"].n + m.ou.n + m.btts.n;
   const overallPct = totalN > 0 ? totalHits / totalN : 0;
+  const totalMatches = data.kpis.n_matches_evaluated;
+
+  const chipOptions: Array<{ key: Filter; label: string; count: number }> = [
+    { key: "all", label: "Todos", count: totalMatches },
+    { key: "perfect", label: "✓ Acertou tudo", count: counts.perfect },
+    { key: "partial", label: "~ Parcial", count: counts.partial },
+    { key: "zero", label: "✗ Errou tudo", count: counts.zero },
+  ];
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -86,7 +127,7 @@ export default function AccuracyPage() {
         <p className="text-sm text-fg-muted">
           <span className="text-fg-primary font-medium">{data.model.name}</span> acertou{" "}
           <span className="text-fg-primary font-medium">{fmtPct(overallPct)}</span> dos
-          mercados ({totalHits}/{totalN}) em {data.kpis.n_matches_evaluated} jogos.
+          mercados ({totalHits}/{totalN}) em {totalMatches} jogos.
         </p>
       </header>
 
@@ -114,6 +155,24 @@ export default function AccuracyPage() {
         />
       </div>
 
+      <div className="flex gap-2 flex-wrap">
+        {chipOptions.map(({ key, label, count }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs border transition-colors",
+              filter === key
+                ? "border-fg-primary bg-bg-overlay text-fg-primary"
+                : "border-white/10 text-fg-muted hover:bg-bg-overlay/40",
+            )}
+          >
+            {label} <span className="text-fg-subtle">({count})</span>
+          </button>
+        ))}
+      </div>
+
       <Card className="p-4">
         <h3 className="text-sm font-medium text-fg-muted mb-1">Mercados acertados por jogo</h3>
         <p className="text-xs text-fg-muted mb-3">
@@ -121,12 +180,14 @@ export default function AccuracyPage() {
           têm 2 mercados, outros 3). Verde = 100%, amarelo = 50–99%, laranja = até 50%,
           vermelho = 0%.
         </p>
-        <PerMatchHitsChart rows={data.matches} />
+        <PerMatchHitsChart rows={filtered} />
       </Card>
 
       <section>
-        <h3 className="text-base font-semibold mb-2">Jogos</h3>
-        <MatchAccuracyTable rows={data.matches} />
+        <h3 className="text-base font-semibold mb-2">
+          Jogos <span className="text-sm font-normal text-fg-muted">({filtered.length})</span>
+        </h3>
+        <MatchAccuracyTable rows={filtered} />
       </section>
     </div>
   );
