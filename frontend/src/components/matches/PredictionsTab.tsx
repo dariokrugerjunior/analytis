@@ -77,16 +77,15 @@ export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
       {scoreline.data && (
         <section className="space-y-2">
           <p className="text-[11px] text-fg-subtle italic">
-            Distribuição de placar do <span className="font-mono">Dixon-Coles</span>{" "}
-            (modelo estatístico separado — pode divergir do 1X2 acima, que vem do ensemble).
+            Grid de placar derivado do ensemble via ajuste Poisson sobre 1X2 + OU 2.5 —
+            marginais coerentes com as barras acima.
           </p>
           <ScorelineHeatmap data={scoreline.data} />
         </section>
       )}
       {scoreline.error && (
         <p className="text-[11px] text-fg-subtle italic">
-          Placar exato indisponível para esta partida (modelo Dixon-Coles não cobre um dos
-          times).
+          Placar exato indisponível para esta partida (falta 1X2 ou OU 2.5 do ensemble).
         </p>
       )}
 
