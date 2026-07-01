@@ -3,7 +3,9 @@ import type { MatchPredictions } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useMatchExplanation } from "@/hooks/useMatchExplanation";
+import { useScorelineGrid } from "@/hooks/useScorelineGrid";
 import { PredictionGroup } from "./PredictionGroup";
+import { ScorelineHeatmap } from "./ScorelineHeatmap";
 
 interface Props {
   matchId: string;
@@ -14,6 +16,7 @@ interface Props {
 export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
   const [explainOn, setExplainOn] = useState(false);
   const explanation = useMatchExplanation(matchId, explainOn);
+  const scoreline = useScorelineGrid(matchId);
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -69,6 +72,24 @@ export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
           ]}
         />
       )}
+
+      {scoreline.isLoading && <Skeleton className="h-48" />}
+      {scoreline.data && (
+        <section className="space-y-2">
+          <p className="text-[11px] text-fg-subtle italic">
+            Distribuição de placar do <span className="font-mono">Dixon-Coles</span>{" "}
+            (modelo estatístico separado — pode divergir do 1X2 acima, que vem do ensemble).
+          </p>
+          <ScorelineHeatmap data={scoreline.data} />
+        </section>
+      )}
+      {scoreline.error && (
+        <p className="text-[11px] text-fg-subtle italic">
+          Placar exato indisponível para esta partida (modelo Dixon-Coles não cobre um dos
+          times).
+        </p>
+      )}
+
       <section className="space-y-2">
         <div className="flex items-baseline justify-between">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">
