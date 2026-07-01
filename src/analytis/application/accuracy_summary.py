@@ -231,14 +231,21 @@ class AccuracySummaryUseCase:
 
             kpis = self._compute_kpis(rows)
 
-            # Compute per-match scoreline credits for DC models (returns {match_id: (credit, pred_h, pred_a)})
+            # Compute per-match scoreline credits + most-likely scoreline. For
+            # Dixon-Coles use the DC model's artifact (native scoreline grid).
+            # For any other family (ensemble, xgboost) derive an
+            # independent-Poisson grid from the 1X2 + OU 2.5 marginals so the
+            # UI always has "Placar previsto: X-Y" and every match gets a
+            # scoreline credit.
             per_match_scoreline: dict[UUID, tuple[float, int, int]] = {}
             if model.family == "dixon-coles":
                 model_row = await session.get(ModelVersionORM, model.id)
                 if model_row is not None and model_row.artifact_path:
                     per_match_scoreline = self._compute_scoreline_per_match(model_row, rows)
-                    if per_match_scoreline:
-                        kpis.scoreline = self._aggregate_scoreline_kpi(per_match_scoreline)
+            else:
+                per_match_scoreline = self._compute_scoreline_from_ensemble(rows)
+            if per_match_scoreline:
+                kpis.scoreline = self._aggregate_scoreline_kpi(per_match_scoreline)
 
             timeseries = self._compute_timeseries(rows)
             matches = self._serialize_matches(rows, per_match_scoreline)
@@ -294,6 +301,35 @@ class AccuracySummaryUseCase:
             credit = scoreline_partial_score(best_i, best_j, r.home_goals, r.away_goals)
             result[r.match_id] = (credit, best_i, best_j)
 
+        return result
+
+    def _compute_scoreline_from_ensemble(
+        self, rows: list[_MatchAggregate]
+    ) -> dict[UUID, tuple[float, int, int]]:
+        """Derive most-likely scoreline per match from the 1X2 + OU 2.5
+        marginals via independent-Poisson fit (same math as
+        /matches/:id/scoreline-grid). Skips matches that don't have both.
+        """
+        from analytis.modeling.ensemble_scoreline import (
+            derive_lambdas,
+            most_likely_score,
+        )
+
+        result: dict[UUID, tuple[float, int, int]] = {}
+        for r in rows:
+            onex2 = r.probs.get("1x2") or {}
+            ou = r.probs.get("over_under_2_5") or {}
+            p_home = onex2.get("home")
+            p_over = ou.get("over")
+            if p_home is None or p_over is None:
+                continue
+            try:
+                lam_h, lam_a = derive_lambdas(p_home, p_over)
+                best_h, best_a = most_likely_score(lam_h, lam_a, max_goals=10)
+            except (ValueError, RuntimeError):
+                continue
+            credit = scoreline_partial_score(best_h, best_a, r.home_goals, r.away_goals)
+            result[r.match_id] = (credit, best_h, best_a)
         return result
 
     @staticmethod
@@ -378,8 +414,20 @@ class AccuracySummaryUseCase:
                     probs={"1x2": {}, "over_under_2_5": {}, "btts": {}},
                 ),
             )
-            if row.market in agg.probs:
-                agg.probs[row.market][row.outcome] = float(row.prob)
+            # Normalize the DB's canonical market/outcome names (`over_under_goals` +
+            # `over_2.5` / `under_2.5`) to the compact internal keys the rest of
+            # this use case works with (`over_under_2_5` + `over` / `under`).
+            # Legacy fixtures already stored under the internal names still work.
+            market = row.market
+            outcome = row.outcome
+            if market == "over_under_goals":
+                market = "over_under_2_5"
+                if outcome == "over_2.5":
+                    outcome = "over"
+                elif outcome == "under_2.5":
+                    outcome = "under"
+            if market in agg.probs:
+                agg.probs[market][outcome] = float(row.prob)
             team_ids.add(row.home_team_id)
             team_ids.add(row.away_team_id)
 

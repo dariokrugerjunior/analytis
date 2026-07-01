@@ -10,16 +10,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from scipy import stats
-from scipy.optimize import brentq
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
+from analytis.modeling.ensemble_scoreline import derive_lambdas, score_matrix
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.catalog import TeamORM
 from analytis.persistence.orm.inference import ModelVersionORM, PredictionORM
@@ -79,58 +77,6 @@ async def _load_ensemble_predictions(
     return preds
 
 
-def _derive_lambdas(
-    p_home_win: float, p_over_2_5: float, max_goals: int = 10
-) -> tuple[float, float]:
-    """Find λ_home, λ_away (independent Poissons) whose marginals reproduce the
-    ensemble's P(home win) and P(over 2.5).
-
-    Two constraints, two unknowns:
-      1. μ = λ_h + λ_a solved from 1 - P(H+A ≤ 2 | Poisson(μ)) = p_over_2_5
-         (sum of independent Poissons is Poisson).
-      2. λ_h solved from P(H > A) = p_home_win where H, A independent
-         Poissons summing to μ.
-    """
-
-    def over_gap(mu: float) -> float:
-        return float(1.0 - stats.poisson.cdf(2, mu)) - p_over_2_5
-
-    # bracket μ ∈ [0.05, 15]; realistic total-goal means are ~0.5..6
-    try:
-        mu = brentq(over_gap, 0.05, 15.0, xtol=1e-4)
-    except ValueError:
-        # p_over_2_5 outside the reachable range; clamp to a sensible default
-        mu = 2.5
-
-    ks = np.arange(max_goals + 1)
-
-    def home_win_gap(lam_h: float) -> float:
-        lam_a = max(mu - lam_h, 1e-6)
-        h_pmf = stats.poisson.pmf(ks, lam_h)
-        a_pmf = stats.poisson.pmf(ks, lam_a)
-        cdf_a = np.cumsum(a_pmf)  # cdf_a[j] = P(A ≤ j)
-        # P(H > A) = Σ_{i≥1} P(H=i) · P(A ≤ i-1)
-        p_h = float(np.sum(h_pmf[1:] * cdf_a[:-1]))
-        return p_h - p_home_win
-
-    try:
-        lam_h = brentq(home_win_gap, 1e-4, mu - 1e-4, xtol=1e-4)
-    except ValueError:
-        # Both marginals infeasible together; fall back to equal split
-        lam_h = mu / 2.0
-
-    lam_a = mu - lam_h
-    return float(lam_h), float(lam_a)
-
-
-def _score_matrix(lam_h: float, lam_a: float, max_goals: int) -> np.ndarray:
-    """Independent Poisson joint distribution over (H, A) up to max_goals."""
-    ks = np.arange(max_goals + 1)
-    h_pmf = stats.poisson.pmf(ks, lam_h)
-    a_pmf = stats.poisson.pmf(ks, lam_a)
-    return np.outer(h_pmf, a_pmf)
-
-
 @router.get(
     "/{match_id}/scoreline-grid",
     response_model=ScorelineGridResponse,
@@ -166,8 +112,8 @@ async def get_scoreline_grid(
             ),
         )
 
-    lam_h, lam_a = _derive_lambdas(p_home_win, p_over_2_5, max_goals=max_goals)
-    matrix = _score_matrix(lam_h, lam_a, max_goals=max_goals)
+    lam_h, lam_a = derive_lambdas(p_home_win, p_over_2_5, max_goals=max_goals)
+    matrix = score_matrix(lam_h, lam_a, max_goals=max_goals)
 
     flat = [
         ScorelineItem(home=i, away=j, prob=float(matrix[i, j]))

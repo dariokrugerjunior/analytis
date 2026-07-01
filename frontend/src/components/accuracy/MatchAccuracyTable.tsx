@@ -68,6 +68,11 @@ export function MatchAccuracyTable({ rows }: Props) {
                 {row.home_team} vs {row.away_team}
               </span>
               <div className="flex items-baseline gap-2 shrink-0">
+                {scoreline && (
+                  <span className="text-xs text-fg-muted font-mono">
+                    prev {scoreline} →
+                  </span>
+                )}
                 <span className="text-sm font-semibold text-fg-primary">
                   {row.home_goals}-{row.away_goals}
                 </span>
@@ -98,11 +103,6 @@ export function MatchAccuracyTable({ rows }: Props) {
                 );
               })}
             </div>
-            {scoreline && (
-              <div className="mt-1 text-[11px] text-fg-muted">
-                Placar previsto: {scoreline}
-              </div>
-            )}
           </Card>
         );
       })}
