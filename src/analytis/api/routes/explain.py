@@ -1,15 +1,13 @@
 """LLM-backed explanation of a match's probabilistic forecast.
 
-Reads the latest persisted predictions + scoreline grid + best odds, hands
+Reads the persisted predictions from the canonical model + best odds, hands
 them to an OpenAI chat model as numbers (no fabricated facts), gets back a
 short PT-BR narration. The LLM is a narrator, not a re-pricer — it never
 overrides the model's probabilities.
 """
 
-import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from uuid import UUID
 
 import openai
@@ -20,13 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
-from analytis.modeling.dixon_coles import score_matrix
-from analytis.modeling.persistence import load_params
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.catalog import TeamORM
 from analytis.persistence.orm.inference import ModelVersionORM, PredictionORM
 from analytis.persistence.orm.matches import MatchORM
 from analytis.persistence.orm.odds import OddsSnapshotORM
+
+CANONICAL_MODEL = "ensemble-v1"
 
 router = APIRouter(prefix="/matches", tags=["explain"])
 
@@ -35,10 +33,11 @@ SYSTEM_PROMPT = """Você é um analista quantitativo de futebol que explica prev
 REGRAS DURAS:
 - Use APENAS os números do contexto. Nunca invente lesões, escalações, histórico H2H, condições climáticas ou qualquer fato extra-modelo.
 - Não dê palpite/aposta. Não diga "vai ganhar" — diga "o modelo atribui X%".
-- Seja conciso: 4-6 frases, no máximo 120 palavras.
-- Estrutura sugerida: (1) o que o modelo prevê em 1X2; (2) por que (λ home/away, gols esperados); (3) over/under e BTTS; (4) placar mais provável; (5) se houver edge nas odds, mencione com cautela.
+- Seja conciso: 3-5 frases, no máximo 100 palavras.
+- Estrutura sugerida: (1) o que o modelo prevê em 1X2; (2) over/under e BTTS quando disponíveis; (3) se houver edge nas odds, mencione com cautela.
 - Linguagem direta. Sem disclaimers genéricos longos.
-- Se as odds estiverem ausentes, simplesmente não comente sobre valor/edge."""
+- Se as odds estiverem ausentes, simplesmente não comente sobre valor/edge.
+- Se algum mercado estiver ausente (indicado por "—"), simplesmente pule esse mercado — não invente valores."""
 
 
 @asynccontextmanager
@@ -56,7 +55,7 @@ class ExplainResponse(BaseModel):
     match_id: UUID
     explanation: str
     model_used: str
-    dc_model: str
+    predictions_model: str
 
 
 @router.get(
@@ -83,47 +82,9 @@ async def explain_match(
         if not home_team or not away_team:
             raise HTTPException(status_code=500, detail="team metadata missing")
 
-        # Find any DC model with an artifact for λ/scoreline enrichment. It
-        # doesn't need to have scored this match — we just borrow its team
-        # parameters. When no DC artifact is reachable or the teams aren't in
-        # its parameter set, we skip the enrichment and let the LLM work off
-        # the probabilities alone.
-        dc_stmt = (
-            select(ModelVersionORM)
-            .where(
-                ModelVersionORM.family == "dixon-coles",
-                ModelVersionORM.artifact_path.is_not(None),
-            )
-            .order_by(ModelVersionORM.created_at.desc())
-            .limit(1)
-        )
-        dc_model = (await session.scalars(dc_stmt)).first()
-        lam_h = 0.0
-        lam_a = 0.0
-        rho = 0.0
-        top_scores: list[tuple[int, int, float]] = []
-        dc_model_name = ""
-        if dc_model is not None and dc_model.artifact_path is not None:
-            dc_params = load_params(Path(dc_model.artifact_path))
-            if home_team.name in dc_params.attack and away_team.name in dc_params.attack:
-                ha = 0.0 if match.is_home_neutral else dc_params.home_advantage
-                lam_h = math.exp(
-                    dc_params.attack[home_team.name] - dc_params.defense[away_team.name] + ha
-                )
-                lam_a = math.exp(
-                    dc_params.attack[away_team.name] - dc_params.defense[home_team.name]
-                )
-                rho = dc_params.rho
-                matrix = score_matrix(lam_h, lam_a, rho, max_goals=6)
-                top_scores = sorted(
-                    ((i, j, float(matrix[i, j])) for i in range(7) for j in range(7)),
-                    key=lambda t: t[2],
-                    reverse=True,
-                )[:5]
-                dc_model_name = dc_model.name
-
-        # Pull predictions for this match. Prefer the canonical ensemble model
-        # (matches the rest of the UI); fall back to whatever is stored.
+        # Pull predictions from the canonical model. If ensemble-v1 hasn't
+        # scored this match (edge case for very recent fixtures), fall back to
+        # whatever the DB has so the LLM still has something to narrate.
         pred_stmt = (
             select(PredictionORM, ModelVersionORM)
             .join(ModelVersionORM, PredictionORM.model_version_id == ModelVersionORM.id)
@@ -138,7 +99,7 @@ async def explain_match(
         by_model: dict[str, list[PredictionORM]] = {}
         for pred, mv in rows:
             by_model.setdefault(mv.name, []).append(pred)
-        preds_model = "ensemble-v1" if "ensemble-v1" in by_model else next(iter(by_model))
+        preds_model = CANONICAL_MODEL if CANONICAL_MODEL in by_model else next(iter(by_model))
         pred_rows = by_model[preds_model]
         preds: dict[str, dict[str, float]] = {}
         for p in pred_rows:
@@ -169,27 +130,10 @@ async def explain_match(
         or "  (sem cotações coletadas)"
     )
 
-    if top_scores:
-        top_lines = "\n".join(f"  - {h}-{a}: {p * 100:.2f}%" for h, a, p in top_scores)
-        dc_section = f"""PARÂMETROS DIXON-COLES (modelo {dc_model_name})
-λ_home (gols esperados mandante) = {lam_h:.3f}
-λ_away (gols esperados visitante) = {lam_a:.3f}
-rho = {rho:.4f}
-
-TOP 5 PLACARES EXATOS
-{top_lines}
-"""
-    else:
-        dc_section = (
-            "PARÂMETROS DIXON-COLES: indisponíveis para esta partida "
-            "(modelo DC não cobre estes times).\n"
-        )
-
     context = f"""PARTIDA
 {home_team.name} (mandante{" — campo neutro" if match.is_home_neutral else ""}) vs {away_team.name}
 Kickoff: {match.kickoff_utc.isoformat()}
 
-{dc_section}
 PROBABILIDADES (modelo {preds_model})
 1X2: {_fmt(preds.get("1x2"))}
 Over/Under 2.5: {_fmt(preds.get("over_under_goals"))}
@@ -232,5 +176,5 @@ Tarefa: escreva uma explicação curta em PT-BR seguindo as regras."""
         match_id=match.id,
         explanation=explanation,
         model_used=resp.model,
-        dc_model=dc_model_name,
+        predictions_model=preds_model,
     )

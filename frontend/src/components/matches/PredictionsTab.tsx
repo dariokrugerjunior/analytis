@@ -2,10 +2,8 @@ import { useState } from "react";
 import type { MatchPredictions } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useScorelineGrid } from "@/hooks/useScorelineGrid";
 import { useMatchExplanation } from "@/hooks/useMatchExplanation";
 import { PredictionGroup } from "./PredictionGroup";
-import { ScorelineHeatmap } from "./ScorelineHeatmap";
 
 interface Props {
   matchId: string;
@@ -14,7 +12,6 @@ interface Props {
 }
 
 export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
-  const scoreline = useScorelineGrid(matchId);
   const [explainOn, setExplainOn] = useState(false);
   const explanation = useMatchExplanation(matchId, explainOn);
   if (isLoading) {
@@ -72,14 +69,6 @@ export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
           ]}
         />
       )}
-      {scoreline.isLoading && <Skeleton className="h-48" />}
-      {scoreline.data && <ScorelineHeatmap data={scoreline.data} />}
-      {scoreline.error && (
-        <p className="text-[11px] text-fg-subtle italic border-t border-white/10 pt-3">
-          Placares exatos indisponíveis: {scoreline.error.message}
-        </p>
-      )}
-
       <section className="space-y-2">
         <div className="flex items-baseline justify-between">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">

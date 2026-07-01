@@ -148,7 +148,7 @@ export interface MatchExplanation {
   match_id: string;
   explanation: string;
   model_used: string;
-  dc_model: string;
+  predictions_model: string;
 }
 
 // ----- Endpoints -----
