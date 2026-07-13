@@ -13,7 +13,7 @@ from analytis import __version__
 from analytis.api.auto_ingest import build_scheduler
 from analytis.api.routes import (
     accuracy,
-    explain,
+    dashboard,
     health,
     matches,
     models,
@@ -66,11 +66,11 @@ def create_app() -> FastAPI:
     app.include_router(matches.router, prefix="/v1")
     app.include_router(predictions.router, prefix="/v1")
     app.include_router(scoreline.router, prefix="/v1")
-    app.include_router(explain.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
     app.include_router(odds.router, prefix="/v1")
     app.include_router(value_bets.router, prefix="/v1")
     app.include_router(accuracy.router, prefix="/v1")
+    app.include_router(dashboard.router, prefix="/v1")
     app.include_router(push.router, prefix="/v1")
 
     # Static frontend (after all /v1/* routes so they take priority).

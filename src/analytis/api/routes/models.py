@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.inference import ModelVersionORM
@@ -49,7 +48,6 @@ class ModelVersionListResponse(BaseModel):
 @router.get(
     "",
     response_model=ModelVersionListResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def list_models(
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -81,7 +79,6 @@ async def list_models(
 @router.get(
     "/{version_id}/metrics",
     response_model=ModelVersionResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_model_metrics(
     version_id: UUID,

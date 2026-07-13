@@ -1,10 +1,5 @@
 const BASE = "/v1";
 
-function getApiKey(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("analytis_api_key");
-}
-
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -13,9 +8,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const apiKey = getApiKey();
   const headers: Record<string, string> = {
-    "X-API-Key": apiKey ?? "",
     "Content-Type": "application/json",
     ...((init.headers as Record<string, string>) ?? {}),
   };
@@ -144,13 +137,6 @@ export interface ScorelineGrid {
   most_likely: ScorelineItem;
 }
 
-export interface MatchExplanation {
-  match_id: string;
-  explanation: string;
-  model_used: string;
-  predictions_model: string;
-}
-
 // ----- Endpoints -----
 export const api = {
   listUpcomingMatches: (days = 7) =>
@@ -172,8 +158,6 @@ export const api = {
     request<ScorelineGrid>(
       `/matches/${matchId}/scoreline-grid?max_goals=${maxGoals}&top=${top}`,
     ),
-  getMatchExplanation: (matchId: string) =>
-    request<MatchExplanation>(`/matches/${matchId}/explain`),
 };
 
 // ----- Accuracy dashboard -----
@@ -256,4 +240,39 @@ export interface AccuracySummary {
 export function fetchAccuracySummary(model?: string): Promise<AccuracySummary> {
   const qs = model ? `?model=${encodeURIComponent(model)}` : "";
   return request<AccuracySummary>(`/accuracy/summary${qs}`);
+}
+
+// ----- Dashboard (per-game score) -----
+export type Outcome = "home" | "draw" | "away";
+
+export interface DashboardGame {
+  match_id: string;
+  home_team: string;
+  away_team: string;
+  kickoff_utc: string;
+  predicted_score: string; // e.g. "2-1"
+  actual_score: string; // e.g. "2-1"
+  outcome_predicted: Outcome;
+  outcome_actual: Outcome;
+  points: 0 | 50 | 100;
+}
+
+export interface DashboardAggregate {
+  total_games: number;
+  avg_points: number;
+  exact: number; // games worth 100
+  outcome_only: number; // games worth 50
+  missed: number; // games worth 0
+}
+
+export interface DashboardScores {
+  model: ModelRef;
+  available_models: ModelOption[];
+  aggregate: DashboardAggregate;
+  games: DashboardGame[];
+}
+
+export function fetchDashboardScores(model?: string): Promise<DashboardScores> {
+  const qs = model ? `?model=${encodeURIComponent(model)}` : "";
+  return request<DashboardScores>(`/dashboard/scores${qs}`);
 }

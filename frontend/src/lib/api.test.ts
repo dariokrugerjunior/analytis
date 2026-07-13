@@ -20,16 +20,13 @@ function mockResponse(body: unknown, init: ResponseInit = { status: 200 }) {
 }
 
 describe("api.listUpcomingMatches", () => {
-  it("calls /v1/matches?upcoming=true&days=N with auth header", async () => {
-    localStorage.setItem("analytis_api_key", "test-key");
+  it("calls /v1/matches?upcoming=true&days=N", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       mockResponse({ items: [] }),
     );
     await api.listUpcomingMatches(3);
     const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(call[0]).toBe("/v1/matches?upcoming=true&days=3");
-    const init = call[1] as RequestInit;
-    expect((init.headers as Record<string, string>)["X-API-Key"]).toBe("test-key");
   });
 });
 

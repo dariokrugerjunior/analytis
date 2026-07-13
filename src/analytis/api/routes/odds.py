@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.odds import OddsSnapshotORM
@@ -46,7 +45,6 @@ class OddsResponse(BaseModel):
 @router.get(
     "/{match_id}/odds",
     response_model=OddsResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_match_odds(
     match_id: UUID,

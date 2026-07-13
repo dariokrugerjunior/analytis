@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from analytis.api.auto_score import auto_score_if_missing
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.inference import ModelVersionORM, PredictionORM
@@ -80,7 +79,6 @@ async def _load_predictions(session: AsyncSession, match_id: UUID) -> list[Predi
 @router.get(
     "/{match_id}/predictions",
     response_model=MatchPredictionsResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_match_predictions(
     match_id: UUID,

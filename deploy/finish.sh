@@ -85,7 +85,7 @@ for i in {1..15}; do
 done
 
 curl -fsS "https://$DOMAIN/v1/health"; echo
-curl -fsS -H "X-API-Key: ${ANALYTIS_API_KEY}" "https://$DOMAIN/v1/models" | head -c 200; echo
+curl -fsS "https://$DOMAIN/v1/models" | head -c 200; echo
 
 # ============================================================
 # Setup cron: TLS renewal + nightly backup

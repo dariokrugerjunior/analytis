@@ -15,7 +15,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.modeling.ensemble_scoreline import derive_lambdas, score_matrix
 from analytis.persistence.engine import create_engine, create_session_factory
@@ -80,7 +79,6 @@ async def _load_ensemble_predictions(
 @router.get(
     "/{match_id}/scoreline-grid",
     response_model=ScorelineGridResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_scoreline_grid(
     match_id: UUID,

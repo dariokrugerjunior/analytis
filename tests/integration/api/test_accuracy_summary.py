@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from analytis.api.main import create_app
-from analytis.config import get_settings
 from analytis.persistence.orm.catalog import CompetitionORM, SeasonORM, TeamORM
 from analytis.persistence.orm.inference import (
     FeatureSnapshotORM,
@@ -19,10 +18,6 @@ from analytis.persistence.orm.inference import (
     PredictionORM,
 )
 from analytis.persistence.orm.matches import MatchORM
-
-
-def _api_key_header() -> dict[str, str]:
-    return {"X-API-Key": get_settings().api_key.get_secret_value()}
 
 
 async def _seed_competition(session: AsyncSession) -> tuple[CompetitionORM, SeasonORM]:
@@ -263,7 +258,7 @@ async def test_returns_404_when_model_not_found(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=ghost", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=ghost")
     assert resp.status_code == 404
     assert "ghost" in resp.json()["detail"]
     del client, app
@@ -325,7 +320,7 @@ async def test_returns_only_finished_matches(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary")
     assert resp.status_code == 200
     body = resp.json()
     assert body["kpis"]["n_matches_evaluated"] == 1
@@ -357,7 +352,7 @@ async def test_1x2_argmax_correctness(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     assert body["kpis"]["markets"]["1x2"]["hits"] == 1
     assert body["kpis"]["markets"]["1x2"]["n"] == 1
@@ -388,7 +383,7 @@ async def test_ou_threshold_at_0_5(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     assert body["kpis"]["markets"]["ou"]["hits"] == 0
     del client, app
@@ -418,7 +413,7 @@ async def test_btts_threshold_at_0_5(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     assert body["kpis"]["markets"]["btts"]["hits"] == 0
     del client, app
@@ -458,7 +453,7 @@ async def test_brier_avg_calculation(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     assert body["kpis"]["markets"]["ou"]["brier_avg"] == pytest.approx(0.5, abs=1e-6)
     del client, app
@@ -489,7 +484,7 @@ async def test_timeseries_n_monotonic(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     ns = [point["n"] for point in body["timeseries"]]
     assert ns == sorted(ns), f"n should be non-decreasing, got {ns}"
@@ -520,7 +515,7 @@ async def test_phase_normalization_in_response(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary?model=m", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary?model=m")
     body = resp.json()
     assert body["matches"][0]["phase"] == "round_of_16"
     del client, app
@@ -536,7 +531,7 @@ async def test_empty_db_returns_404(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary")
     assert resp.status_code == 404
     del client, app
     gc.collect()
@@ -624,7 +619,7 @@ async def test_default_model_picks_first_alphabetical_with_predictions(
     gc.collect()
     app = create_app()
     client = TestClient(app)
-    resp = client.get("/v1/accuracy/summary", headers=_api_key_header())
+    resp = client.get("/v1/accuracy/summary")
     assert resp.status_code == 200
     body = resp.json()
     assert body["model"]["name"] == "a-model"  # alphabetical default

@@ -46,7 +46,6 @@ jobs:
           --health-retries 10
     env:
       ANALYTIS_DATABASE_URL: postgresql+psycopg://analytis:analytis_test@localhost:5432/analytis_test
-      ANALYTIS_API_KEY: ci-test
       ANALYTIS_LOG_LEVEL: WARNING
     steps:
       - uses: actions/checkout@v4

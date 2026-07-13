@@ -26,8 +26,7 @@ Plan 4 (LLM news extractor, final backtest pipeline, in-play modelling) is the n
 git clone <repo> && cd analytis
 uv sync
 cp .env.example .env
-# edit .env: set ANALYTIS_FOOTBALL_DATA_API_KEY, ANALYTIS_THE_ODDS_API_KEY,
-#            and ANALYTIS_API_KEY
+# edit .env: set ANALYTIS_FOOTBALL_DATA_API_KEY and ANALYTIS_THE_ODDS_API_KEY
 
 docker compose up -d postgres
 uv run analytis db migrate
@@ -88,28 +87,23 @@ uv run analytis backtest run \
 ```bash
 uv run analytis api serve --port 8000
 
-# Health (no auth)
+# Health
 curl http://localhost:8000/v1/health
 
 # Predictions for a match
-curl -H "X-API-Key: $ANALYTIS_API_KEY" \
-    http://localhost:8000/v1/matches/<uuid>/predictions
+curl http://localhost:8000/v1/matches/<uuid>/predictions
 
 # Latest odds (best per outcome)
-curl -H "X-API-Key: $ANALYTIS_API_KEY" \
-    http://localhost:8000/v1/matches/<uuid>/odds
+curl http://localhost:8000/v1/matches/<uuid>/odds
 
 # Persisted value bets for a match
-curl -H "X-API-Key: $ANALYTIS_API_KEY" \
-    http://localhost:8000/v1/matches/<uuid>/value-bets
+curl http://localhost:8000/v1/matches/<uuid>/value-bets
 
 # Aggregate CLV per model
-curl -H "X-API-Key: $ANALYTIS_API_KEY" \
-    http://localhost:8000/v1/bets/clv-summary
+curl http://localhost:8000/v1/bets/clv-summary
 
 # List trained models
-curl -H "X-API-Key: $ANALYTIS_API_KEY" \
-    http://localhost:8000/v1/models
+curl http://localhost:8000/v1/models
 ```
 
 ## ⚠️ Honest disclaimers (read before betting)

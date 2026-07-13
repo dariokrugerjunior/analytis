@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.catalog import TeamORM
@@ -48,7 +47,6 @@ class MatchesList(BaseModel):
 @router.get(
     "",
     response_model=MatchesList,
-    dependencies=[Depends(require_api_key)],
 )
 async def list_matches(
     upcoming: bool = Query(False),

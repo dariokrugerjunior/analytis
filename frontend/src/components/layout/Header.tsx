@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Bell, BookOpen, Home, Settings, Target } from "lucide-react";
-import { OPEN_API_KEY_DIALOG_EVENT } from "@/components/ApiKeyDialog";
+import { Bell, BookOpen, CalendarDays, LayoutDashboard, Target } from "lucide-react";
 import { enablePush } from "@/lib/push";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +14,8 @@ async function handlePushClick() {
 }
 
 const navItems = [
-  { to: "/", label: "Jogos", icon: Home },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/jogos", label: "Jogos", icon: CalendarDays },
   { to: "/acertos", label: "Acertos", icon: Target },
   { to: "/metodologia", label: "Metodologia", icon: BookOpen },
 ];
@@ -50,14 +50,6 @@ export function Header() {
           type="button"
         >
           <Bell className="h-4 w-4" />
-        </button>
-        <button
-          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-fg-muted hover:text-fg-primary"
-          onClick={() => window.dispatchEvent(new Event(OPEN_API_KEY_DIALOG_EVENT))}
-          aria-label="Configurações"
-          type="button"
-        >
-          <Settings className="h-4 w-4" />
         </button>
       </nav>
     </header>

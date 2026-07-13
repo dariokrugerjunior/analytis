@@ -1,8 +1,5 @@
-import { useState } from "react";
 import type { MatchPredictions } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { useMatchExplanation } from "@/hooks/useMatchExplanation";
 import { useScorelineGrid } from "@/hooks/useScorelineGrid";
 import { PredictionGroup } from "./PredictionGroup";
 import { ScorelineHeatmap } from "./ScorelineHeatmap";
@@ -14,8 +11,6 @@ interface Props {
 }
 
 export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
-  const [explainOn, setExplainOn] = useState(false);
-  const explanation = useMatchExplanation(matchId, explainOn);
   const scoreline = useScorelineGrid(matchId);
   if (isLoading) {
     return (
@@ -88,47 +83,6 @@ export function PredictionsTab({ matchId, predictions, isLoading }: Props) {
           Placar exato indisponível para esta partida (falta 1X2 ou OU 2.5 do ensemble).
         </p>
       )}
-
-      <section className="space-y-2">
-        <div className="flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-fg-muted">
-            Análise por IA
-          </h3>
-          {explanation.data && (
-            <span className="text-[11px] text-fg-subtle font-mono">
-              {explanation.data.model_used}
-            </span>
-          )}
-        </div>
-        {!explainOn && !explanation.data && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => setExplainOn(true)}
-          >
-            💡 Explicar previsões
-          </Button>
-        )}
-        {explanation.isLoading && (
-          <div className="space-y-2 rounded-lg border border-white/10 bg-bg-elevated p-4">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-4/5" />
-            <Skeleton className="h-3 w-3/5" />
-          </div>
-        )}
-        {explanation.data && (
-          <div className="rounded-lg border border-white/10 bg-bg-elevated p-4 text-sm leading-relaxed whitespace-pre-wrap">
-            {explanation.data.explanation}
-          </div>
-        )}
-        {explanation.error && (
-          <div className="rounded-lg border border-brand-danger/30 bg-bg-elevated p-3 text-xs text-fg-muted">
-            {explanation.error.message}
-          </div>
-        )}
-      </section>
 
       <p className="text-[11px] text-fg-subtle italic flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>

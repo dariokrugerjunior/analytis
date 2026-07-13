@@ -101,7 +101,7 @@ git clone <repo-url> /opt/analytis && cd /opt/analytis
 
 # Configurar envs
 cp deploy/.env.prod.example deploy/.env.prod
-nano deploy/.env.prod   # preencher API keys, ANALYTIS_API_KEY=dariokrugerjunior1999, senha do postgres etc.
+nano deploy/.env.prod   # preencher API keys externas, senha do postgres etc.
 
 # Apontar frontend pro domínio (build-time): VITE_API_BASE_URL=https://analytis.example.com
 # (frontend/src/lib/api.ts já lê de import.meta.env, conferir/criar .env.production)

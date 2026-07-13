@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from analytis.api.deps import require_api_key
 from analytis.application.accuracy_summary import (
     AccuracySummary,
     AccuracySummaryParams,
@@ -17,7 +16,6 @@ from analytis.persistence.engine import create_engine, create_session_factory
 router = APIRouter(
     prefix="/accuracy",
     tags=["accuracy"],
-    dependencies=[Depends(require_api_key)],
 )
 
 

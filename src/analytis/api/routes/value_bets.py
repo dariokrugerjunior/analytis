@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from analytis.api.deps import require_api_key
 from analytis.config import Settings, get_settings
 from analytis.persistence.engine import create_engine, create_session_factory
 from analytis.persistence.orm.bets import ValueBetORM
@@ -55,7 +54,6 @@ class ValueBetsList(BaseModel):
 @router.get(
     "/matches/{match_id}/value-bets",
     response_model=ValueBetsList,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_match_value_bets(
     match_id: UUID,
@@ -105,7 +103,6 @@ class CLVSummaryList(BaseModel):
 @router.get(
     "/bets/clv-summary",
     response_model=CLVSummaryList,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_clv_summary(
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -158,7 +155,6 @@ class ClvTimelineResponse(BaseModel):
 @router.get(
     "/bets/clv-timeline",
     response_model=ClvTimelineResponse,
-    dependencies=[Depends(require_api_key)],
 )
 async def get_clv_timeline(
     model: str,

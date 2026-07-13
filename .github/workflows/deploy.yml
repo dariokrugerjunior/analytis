@@ -94,7 +94,7 @@ jobs:
           echo "Keys present in deploy/.env.prod:"
           grep -oE '^[A-Z_][A-Z0-9_]*=' deploy/.env.prod | sort -u | sed 's/^/  /' || true
           # Required by finish.sh — fail fast with a clear message.
-          for k in DOMAIN ACME_EMAIL POSTGRES_PASSWORD ANALYTIS_API_KEY; do
+          for k in DOMAIN ACME_EMAIL POSTGRES_PASSWORD; do
             grep -qE "^${k}=.+" deploy/.env.prod || \
               { echo "::error::ENV_PROD secret is missing or empty for required key: $k"; exit 1; }
           done

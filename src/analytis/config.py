@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     )
 
     database_url: str
-    api_key: SecretStr
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_format: Literal["console", "json"] = "console"
@@ -27,10 +26,6 @@ class Settings(BaseSettings):
     elo_ratings_url: str = "http://www.eloratings.net/World.tsv"
     the_odds_api_key: SecretStr | None = None
     the_odds_api_base_url: str = "https://api.the-odds-api.com/v4"
-
-    openai_api_key: SecretStr | None = None
-    openai_model: str = "gpt-4o-mini"
-    openai_base_url: str | None = None
 
     auto_ingest_enabled: bool = True
     auto_ingest_competition: str = "2000"
