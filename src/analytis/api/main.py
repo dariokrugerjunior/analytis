@@ -8,6 +8,9 @@ import structlog
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from analytis import __version__
 from analytis.api.auto_ingest import build_scheduler
@@ -26,6 +29,25 @@ from analytis.api.routes import (
 from analytis.config import get_settings
 
 log = structlog.get_logger(__name__)
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve static assets, falling back to ``index.html`` for unknown paths.
+
+    The frontend is a client-side-routed SPA: paths like ``/jogos`` or
+    ``/acertos`` have no file on disk, so a plain ``StaticFiles`` mount returns
+    404 on direct load / refresh / deep-link. This subclass returns
+    ``index.html`` for any missing non-API path so the router can take over,
+    while still letting real 404s through for ``/v1/*`` API paths.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not path.startswith("v1"):
+                return await super().get_response("index.html", scope)
+            raise
 
 
 @asynccontextmanager
@@ -76,7 +98,7 @@ def create_app() -> FastAPI:
     # Static frontend (after all /v1/* routes so they take priority).
     frontend_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
     if frontend_dist.exists():
-        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+        app.mount("/", SPAStaticFiles(directory=str(frontend_dist), html=True), name="frontend")
     else:
         # Friendly fallback when frontend wasn't built yet.
         @app.get("/", include_in_schema=False, response_class=HTMLResponse)
