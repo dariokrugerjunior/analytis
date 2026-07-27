@@ -34,7 +34,7 @@ class InternationalMatchDTO:
 class InternationalResultsAdapter:
     source_id = "intl_results"
     DEFAULT_URL = (
-        "https://raw.githubusercontent.com/" "martj42/international_results/master/results.csv"
+        "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
     )
 
     def __init__(self, client: httpx.AsyncClient, url: str | None = None) -> None:

@@ -46,7 +46,7 @@ def build_post_payload(match: dict[str, Any], probs_1x2: dict[str, float]) -> di
     top_outcome, top_prob = _top_1x2(probs_1x2)
 
     marker = "✓ acerto 1X2" if top_outcome == actual else "✗ errou 1X2"
-    body = f"Sua previsão: {_OUTCOME_LABEL[top_outcome]} " f"({round(top_prob * 100)}%) — {marker}"
+    body = f"Sua previsão: {_OUTCOME_LABEL[top_outcome]} ({round(top_prob * 100)}%) — {marker}"
     return {
         "title": f"{home} {hg}-{ag} {away}",
         "body": body,

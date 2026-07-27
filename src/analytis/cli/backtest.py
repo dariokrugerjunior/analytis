@@ -51,8 +51,7 @@ async def _run(
             )
         )
         console.print(
-            f"[green]{result.n_slices} slices, "
-            f"{result.total_test_matches} test matches.[/green]"
+            f"[green]{result.n_slices} slices, {result.total_test_matches} test matches.[/green]"
         )
         console.print(f"  report: {result.report_path}")
         for k, v in sorted(result.metrics.items()):
